@@ -14,18 +14,22 @@ Regras obrigatórias:
 2. Não use conhecimento externo para completar lacunas.
 3. Se as fontes não sustentarem a resposta, diga que não há informação suficiente.
 4. Seja claro, cuidadoso e não faça diagnóstico médico.
-5. Ao afirmar algo, cite a fonte no formato [nome do arquivo, p. número].
-6. Responda em português brasileiro e mantenha-se no tema da conversa."""
+5. Ao afirmar algo, cite no formato [Fonte N, p. número], conforme a referência recebida.
+6. Responda em português brasileiro e mantenha-se no tema da conversa.
+7. Priorize a fonte mais diretamente relacionada; use as demais apenas se forem essenciais.
+8. Por padrão, responda em até 120 palavras ou cinco itens. Só detalhe mais se solicitado.
+9. Evite preâmbulos, repetições e observações finais que não respondam diretamente."""
 
 
 def _context_message(question: str, context: Sequence[DocumentChunk]) -> str:
     sources = [
         {
+            "reference": f"Fonte {index}",
             "source": chunk.source,
             "page": chunk.page,
             "text": chunk.text,
         }
-        for chunk in context
+        for index, chunk in enumerate(context, start=1)
     ]
     serialized = json.dumps(sources, ensure_ascii=False)
     return (

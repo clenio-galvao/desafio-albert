@@ -85,6 +85,8 @@ def test_chat_adapter_separates_untrusted_context_from_system_rules() -> None:
     assert converted[2] == {"role": "assistant", "content": "resposta anterior"}
     assert injection in str(converted[3]["content"])
     assert "FONTES_NAO_CONFIAVEIS_JSON" in str(converted[3]["content"])
+    assert '"reference": "Fonte 1"' in str(converted[3]["content"])
+    assert "até 120 palavras" in SYSTEM_PROMPT
 
 
 @pytest.mark.parametrize(
