@@ -1,6 +1,10 @@
 """Casos de uso e portas da aplicação."""
 
-from chatbot.application.exceptions import ApplicationError, UnsupportedModelError
+from chatbot.application.exceptions import (
+    ApplicationError,
+    EmptyGenerationError,
+    UnsupportedModelError,
+)
 from chatbot.application.models import (
     ChatEvent,
     ChatEventType,
@@ -14,6 +18,7 @@ __all__ = [
     "ChatEvent",
     "ChatEventType",
     "ChatRequest",
+    "EmptyGenerationError",
     "IngestionResult",
     "SourcePage",
     "UnsupportedModelError",

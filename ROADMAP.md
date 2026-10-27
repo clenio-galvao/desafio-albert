@@ -52,9 +52,9 @@ flowchart LR
   avaliações manuais controladas.
 - Cobertura de branches mínima de 90%, sem substituir testes comportamentais.
 
-## Checklist por commit
+## Checklist por Tarefa
 
-### Commit 1 — `chore: bootstrap project and quality gates`
+### Tarefa 1 — `chore: bootstrap project and quality gates`
 
 - [x] Criar o repositório público no GitHub e configurar `origin` e `main`.
 - [x] Inicializar Python 3.12, layout `src` e gerenciamento de dependências.
@@ -64,7 +64,7 @@ flowchart LR
 - [x] Adicionar aplicação e teste mínimos para validar o pipeline.
 - [x] Confirmar ausência de chaves, PDFs e arquivos sensíveis.
 
-### Commit 2 — `feat: add domain and application ports`
+### Tarefa 2 — `feat: add domain and application ports`
 
 - [x] Criar `Message`, `ChatSession`, `DocumentChunk` e `Citation`.
 - [x] Definir exceções e regras de domínio.
@@ -74,7 +74,7 @@ flowchart LR
 - [x] Cobrir regras e contratos com testes unitários.
 - [x] Impedir imports de FastAPI, OpenAI e Qdrant no núcleo.
 
-### Commit 3 — `feat: add idempotent knowledge ingestion`
+### Tarefa 3 — `feat: add idempotent knowledge ingestion`
 
 - [x] Baixar apostilas sem armazená-las no Git.
 - [x] Extrair e limpar texto preservando arquivo, título e página.
@@ -85,17 +85,17 @@ flowchart LR
 - [x] Criar `scripts/ingest.py` com validação e resumo.
 - [x] Testar todo o pipeline sem chamadas reais.
 
-### Commit 4 — `feat: add grounded conversational rag`
+### Tarefa 4 — `feat: add grounded conversational rag`
 
-- [ ] Criar sessões em memória com TTL e limites.
-- [ ] Contextualizar perguntas com o histórico recente.
-- [ ] Recuperar com `top_k`, filtros e limiar configuráveis.
-- [ ] Criar prompt delimitado com política de recusa.
-- [ ] Vincular citações a apostila e página.
-- [ ] Implementar chat OpenAI-compatible assíncrono e intercambiável.
-- [ ] Testar contexto, recusa, citações, modelos e prompt injection.
+- [x] Criar sessões em memória com TTL e limites.
+- [x] Contextualizar perguntas com o histórico recente.
+- [x] Recuperar com `top_k`, filtros e limiar configuráveis.
+- [x] Criar prompt delimitado com política de recusa.
+- [x] Vincular citações a apostila e página.
+- [x] Implementar chat OpenAI-compatible assíncrono e intercambiável.
+- [x] Testar contexto, recusa, citações, modelos e prompt injection.
 
-### Commit 5 — `feat: expose streaming chat api`
+### Tarefa 5 — `feat: expose streaming chat api`
 
 - [ ] Criar composition root com injeção explícita.
 - [ ] Implementar chat com SSE.
@@ -106,7 +106,7 @@ flowchart LR
 - [ ] Configurar OpenAPI, CORS e logs seguros.
 - [ ] Testar HTTP e sequência SSE.
 
-### Commit 6 — `feat: add live demo and api test collection`
+### Tarefa 6 — `feat: add live demo and api test collection`
 
 - [ ] Criar `/demo` sem framework frontend.
 - [ ] Consumir o `ReadableStream` incrementalmente.
@@ -116,7 +116,7 @@ flowchart LR
 - [ ] Criar coleção Postman e exemplos `curl -N`.
 - [ ] Testar rota, assets e comportamento essencial.
 
-### Commit 7 — `test: add integration and rag evaluation suites`
+### Tarefa 7 — `test: add integration and rag evaluation suites`
 
 - [ ] Testar adapters OpenAI-compatible e Qdrant isoladamente.
 - [ ] Testar streaming parcial, falhas e desconexões.
@@ -127,7 +127,7 @@ flowchart LR
 - [ ] Atingir cobertura de branches ≥90%.
 - [ ] Validar suíte, lint e tipos.
 
-### Commit 8 — `docs: add architecture usage and ai disclosure`
+### Tarefa 8 — `docs: add architecture usage and ai disclosure`
 
 - [ ] Documentar objetivo, escopo, arquitetura e fluxo RAG.
 - [ ] Documentar instalação, configuração, ingestão, execução e testes.
@@ -139,7 +139,7 @@ flowchart LR
 - [ ] Criar ADRs para as decisões relevantes.
 - [ ] Adicionar roteiro de demonstração e troubleshooting.
 
-### Commit 9 — `deploy: configure render service`
+### Tarefa 9 — `deploy: configure render service`
 
 - [ ] Criar e validar Dockerfile executado como usuário não-root.
 - [ ] Criar `render.yaml` com health check.

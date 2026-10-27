@@ -7,3 +7,7 @@ class ApplicationError(Exception):
 
 class UnsupportedModelError(ApplicationError):
     """O modelo solicitado não pertence à allowlist."""
+
+
+class EmptyGenerationError(ApplicationError):
+    """O provedor encerrou o stream sem produzir uma resposta útil."""

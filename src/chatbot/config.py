@@ -27,6 +27,8 @@ class Settings(BaseSettings):
     retrieval_top_k: int = Field(default=5, ge=1, le=20)
     retrieval_score_threshold: float = Field(default=0.7, ge=0, le=1)
     session_ttl_seconds: int = Field(default=3600, ge=60)
+    session_max_messages: int = Field(default=12, ge=2, le=50)
+    retrieval_history_messages: int = Field(default=4, ge=0, le=20)
 
     @model_validator(mode="after")
     def validate_chunk_overlap(self) -> "Settings":

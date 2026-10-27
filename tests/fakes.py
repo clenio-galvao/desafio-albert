@@ -10,6 +10,8 @@ class FakeLLM:
     def __init__(self, tokens: Sequence[str] = ("resposta",)) -> None:
         self.tokens = tuple(tokens)
         self.models: list[str] = []
+        self.messages: list[tuple[Message, ...]] = []
+        self.contexts: list[tuple[DocumentChunk, ...]] = []
 
     async def stream(
         self,
@@ -19,6 +21,8 @@ class FakeLLM:
         context: Sequence[DocumentChunk],
     ) -> AsyncIterator[str]:
         self.models.append(model)
+        self.messages.append(tuple(messages))
+        self.contexts.append(tuple(context))
         for token in self.tokens:
             yield token
 
@@ -36,6 +40,7 @@ class FakeVectorStore:
     def __init__(self, results: Sequence[RetrievedChunk] = ()) -> None:
         self.results = tuple(results)
         self.stored: dict[str, tuple[DocumentChunk, tuple[float, ...]]] = {}
+        self.queries: list[str] = []
 
     async def search(
         self,
@@ -44,6 +49,7 @@ class FakeVectorStore:
         limit: int,
         score_threshold: float,
     ) -> Sequence[RetrievedChunk]:
+        self.queries.append(query)
         return tuple(item for item in self.results if item.score >= score_threshold)[:limit]
 
     async def existing_hashes(self, hashes: Sequence[str]) -> set[str]:
