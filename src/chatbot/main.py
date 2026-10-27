@@ -10,6 +10,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from chatbot.adapters.inbound.api import router
+from chatbot.adapters.inbound.web import router as web_router
 from chatbot.bootstrap import ApplicationContainer, build_container
 from chatbot.config import Settings
 
@@ -47,6 +48,7 @@ def create_app(
             allow_headers=["Content-Type"],
         )
     application.include_router(router)
+    application.include_router(web_router)
 
     return application
 

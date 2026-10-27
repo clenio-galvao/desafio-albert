@@ -34,6 +34,23 @@ uvicorn chatbot.main:app --reload
 O health check inicial estará disponível em
 `http://localhost:8000/health/live`.
 
+## Teste ao vivo
+
+- Demo: `http://localhost:8000/demo`
+- Swagger: `http://localhost:8000/docs`
+- Coleção Postman: `docs/postman/chatbot-rag.postman_collection.json`
+
+O streaming também pode ser observado diretamente no terminal:
+
+```bash
+curl -N -X POST http://localhost:8000/v1/chat/stream \
+  -H "Content-Type: application/json" \
+  -d '{"session_id":"demo","message":"Como cuidar da saúde mental?","model":"azure/gpt-5-mini"}'
+```
+
+O endpoint envia eventos SSE `metadata`, `token`, `done` e, em caso de falha
+após o início do stream, `error`.
+
 ## Preparação da base
 
 O download e a ingestão são comandos explícitos: iniciar a API não consome a

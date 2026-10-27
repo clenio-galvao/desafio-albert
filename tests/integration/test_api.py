@@ -253,3 +253,19 @@ async def test_cors_allows_only_explicit_origin() -> None:
 
     assert allowed.headers["access-control-allow-origin"] == "https://frontend.test"
     assert "access-control-allow-origin" not in denied.headers
+
+
+async def test_demo_contains_streaming_client_without_backend_secrets() -> None:
+    async with AsyncClient(
+        transport=ASGITransport(app=create_app()),
+        base_url="http://test",
+    ) as client:
+        response = await client.get("/demo")
+
+    assert response.status_code == 200
+    assert "Chatbot de saúde mental" in response.text
+    assert 'fetch("/v1/models")' in response.text
+    assert 'fetch("/v1/chat/stream"' in response.text
+    assert "response.body.getReader()" in response.text
+    assert "OPENAI_API_KEY" not in response.text
+    assert "QDRANT_API_KEY" not in response.text

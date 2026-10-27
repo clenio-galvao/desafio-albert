@@ -108,13 +108,13 @@ flowchart LR
 
 ### Tarefa 6 — `feat: add live demo and api test collection`
 
-- [ ] Criar `/demo` sem framework frontend.
-- [ ] Consumir o `ReadableStream` incrementalmente.
-- [ ] Adicionar modelo, sessão e estados de erro.
-- [ ] Exibir resposta e fontes de forma acessível.
-- [ ] Garantir que nenhuma chave chegue ao navegador.
-- [ ] Criar coleção Postman e exemplos `curl -N`.
-- [ ] Testar rota, assets e comportamento essencial.
+- [x] Criar `/demo` sem framework frontend.
+- [x] Consumir o `ReadableStream` incrementalmente.
+- [x] Adicionar modelo, sessão e estados de erro.
+- [x] Exibir resposta e fontes de forma acessível.
+- [x] Garantir que nenhuma chave chegue ao navegador.
+- [x] Criar coleção Postman e exemplos `curl -N`.
+- [x] Testar rota, assets e comportamento essencial.
 
 ### Tarefa 7 — `test: add integration and rag evaluation suites`
 

@@ -1,0 +1,84 @@
+{
+  "info": {
+    "_postman_id": "6e51cb7f-6242-4db4-a2f9-e639d891783d",
+    "name": "Desafio Albert — Chatbot RAG",
+    "description": "Testes manuais da API. Nenhuma credencial de backend é necessária.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8000"
+    },
+    {
+      "key": "sessionId",
+      "value": "postman-session"
+    },
+    {
+      "key": "model",
+      "value": "azure/gpt-5-mini"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Liveness",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/health/live"
+          }
+        },
+        {
+          "name": "Readiness",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/health/ready"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Chat",
+      "item": [
+        {
+          "name": "Listar modelos",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/v1/models"
+          }
+        },
+        {
+          "name": "Streaming SSE",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "text/event-stream"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"session_id\": \"{{sessionId}}\",\n  \"message\": \"Quais práticas ajudam a cuidar da saúde mental?\",\n  \"model\": \"{{model}}\"\n}"
+            },
+            "url": "{{baseUrl}}/v1/chat/stream",
+            "description": "A resposta usa eventos metadata, token, done ou error."
+          }
+        },
+        {
+          "name": "Limpar sessão",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/v1/sessions/{{sessionId}}"
+          }
+        }
+      ]
+    }
+  ]
+}

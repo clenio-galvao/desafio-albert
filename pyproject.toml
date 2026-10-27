@@ -38,6 +38,9 @@ chatbot-api = "chatbot.main:run"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+chatbot = ["adapters/inbound/web/*.html"]
+
 [tool.pytest.ini_options]
 addopts = "--strict-markers --strict-config --cov=chatbot --cov-branch --cov-report=term-missing --cov-fail-under=90"
 testpaths = ["tests"]
