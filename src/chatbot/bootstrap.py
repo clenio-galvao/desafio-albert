@@ -48,6 +48,7 @@ def build_container(settings: Settings) -> ApplicationContainer:
         api_key=settings.qdrant_api_key.get_secret_value(),
         collection_name=settings.qdrant_collection,
         embedding=embedding,
+        following_pages=settings.retrieval_following_pages,
     )
     llm = OpenAIChatAdapter(
         base_url=settings.openai_base_url,

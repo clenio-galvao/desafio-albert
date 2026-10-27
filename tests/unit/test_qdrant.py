@@ -20,7 +20,9 @@ def make_chunk(identifier: str = "00000000-0000-0000-0000-000000000001") -> Docu
     )
 
 
-def make_store() -> tuple[QdrantVectorStore, AsyncMock, FakeEmbedding]:
+def make_store(
+    following_pages: int = 0,
+) -> tuple[QdrantVectorStore, AsyncMock, FakeEmbedding]:
     client = AsyncMock()
     embedding = FakeEmbedding()
     with patch(
@@ -32,8 +34,23 @@ def make_store() -> tuple[QdrantVectorStore, AsyncMock, FakeEmbedding]:
             api_key="secret",
             collection_name="knowledge-v1",
             embedding=embedding,
+            following_pages=following_pages,
         )
     return store, client, embedding
+
+
+def test_qdrant_store_rejects_negative_following_pages() -> None:
+    with (
+        patch("chatbot.adapters.outbound.qdrant.AsyncQdrantClient"),
+        pytest.raises(ValueError, match="following_pages"),
+    ):
+        QdrantVectorStore(
+            url="https://qdrant.test",
+            api_key="secret",
+            collection_name="knowledge-v1",
+            embedding=FakeEmbedding(),
+            following_pages=-1,
+        )
 
 
 async def test_existing_hashes_short_circuits_empty_or_missing_collection() -> None:
@@ -45,6 +62,25 @@ async def test_existing_hashes_short_circuits_empty_or_missing_collection() -> N
     client.collection_exists.return_value = False
     assert await store.existing_hashes(["hash"]) == set()
     client.scroll.assert_not_awaited()
+
+
+async def test_ensure_indexes_skips_missing_collection_and_creates_missing_fields() -> None:
+    store, client, _ = make_store()
+    client.collection_exists.return_value = False
+    await store.ensure_indexes()
+    client.get_collection.assert_not_awaited()
+
+    client.collection_exists.return_value = True
+    client.get_collection.return_value = SimpleNamespace(
+        payload_schema={
+            "content_hash": object(),
+            "source": object(),
+        }
+    )
+    await store.ensure_indexes()
+
+    client.create_payload_index.assert_awaited_once()
+    assert client.create_payload_index.await_args.kwargs["field_name"] == "page"
 
 
 async def test_existing_hashes_reads_payload_in_batches() -> None:
@@ -69,12 +105,14 @@ async def test_existing_hashes_reads_payload_in_batches() -> None:
 
 async def test_upsert_creates_collection_and_writes_payload() -> None:
     store, client, _ = make_store()
-    client.collection_exists.return_value = False
+    client.collection_exists.side_effect = [False, True]
+    client.get_collection.return_value = SimpleNamespace(payload_schema={})
     chunk = make_chunk()
 
     await store.upsert([chunk], [[0.1, 0.2]])
 
     client.create_collection.assert_awaited_once()
+    assert client.create_payload_index.await_count == 3
     upsert_call = client.upsert.await_args.kwargs
     assert upsert_call["collection_name"] == "knowledge-v1"
     assert upsert_call["wait"] is True
@@ -103,6 +141,11 @@ async def test_upsert_accepts_existing_collection_with_matching_dimension() -> N
     store, client, _ = make_store()
     client.collection_exists.return_value = True
     client.get_collection.return_value = SimpleNamespace(
+        payload_schema={
+            "content_hash": object(),
+            "source": object(),
+            "page": object(),
+        },
         config=SimpleNamespace(
             params=SimpleNamespace(
                 vectors=models.VectorParams(size=2, distance=models.Distance.COSINE)
@@ -127,6 +170,11 @@ async def test_upsert_rejects_incompatible_existing_collection(vectors: object) 
     store, client, _ = make_store()
     client.collection_exists.return_value = True
     client.get_collection.return_value = SimpleNamespace(
+        payload_schema={
+            "content_hash": object(),
+            "source": object(),
+            "page": object(),
+        },
         config=SimpleNamespace(params=SimpleNamespace(vectors=vectors))
     )
 
@@ -165,6 +213,54 @@ async def test_search_embeds_query_and_maps_results() -> None:
     assert embedding.inputs == ["pergunta"]
     assert results[0].score == 1
     assert results[0].chunk.page == 4
+
+
+async def test_search_adds_following_page_and_deduplicates_records() -> None:
+    store, client, _ = make_store(following_pages=2)
+    client.collection_exists.return_value = True
+    client.query_points.return_value = SimpleNamespace(
+        points=[
+            SimpleNamespace(
+                id="00000000-0000-0000-0000-000000000001",
+                score=0.8,
+                payload={
+                    "text": "início da lista",
+                    "source": "apostila.pdf",
+                    "page": 4,
+                    "content_hash": "hash-4",
+                },
+            ),
+            SimpleNamespace(
+                id="00000000-0000-0000-0000-000000000002",
+                score=0.75,
+                payload={
+                    "text": "continuação da lista",
+                    "source": "apostila.pdf",
+                    "page": 5,
+                    "content_hash": "hash-5",
+                },
+            ),
+        ]
+    )
+    following_record = SimpleNamespace(
+        id="00000000-0000-0000-0000-000000000002",
+        payload={
+            "text": "continuação da lista",
+            "source": "apostila.pdf",
+            "page": 5,
+            "content_hash": "hash-5",
+        },
+    )
+    client.scroll.side_effect = [
+        ([following_record], None),
+        ([following_record], None),
+    ]
+
+    results = await store.search("pergunta", limit=3, score_threshold=0.35)
+
+    assert [item.chunk.page for item in results] == [4, 5]
+    assert results[1].score == 0.8
+    assert client.scroll.await_count == 2
 
 
 async def test_search_rejects_invalid_query_embedding_count() -> None:

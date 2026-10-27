@@ -17,8 +17,10 @@ Regras obrigatórias:
 5. Ao afirmar algo, cite no formato [Fonte N, p. número], conforme a referência recebida.
 6. Responda em português brasileiro e mantenha-se no tema da conversa.
 7. Priorize a fonte mais diretamente relacionada; use as demais apenas se forem essenciais.
-8. Por padrão, responda em até 120 palavras ou cinco itens. Só detalhe mais se solicitado.
-9. Evite preâmbulos, repetições e observações finais que não respondam diretamente."""
+8. Por padrão, responda em até 120 palavras. Só detalhe mais se solicitado.
+9. Se a fonte principal trouxer uma lista explícita em páginas consecutivas, inclua todos os itens.
+10. Se essa lista responder integralmente à pergunta, não acrescente itens de outras fontes.
+11. Evite preâmbulos, repetições e observações finais que não respondam diretamente."""
 
 
 def _context_message(question: str, context: Sequence[DocumentChunk]) -> str:

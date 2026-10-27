@@ -28,6 +28,7 @@ def test_settings_parse_and_deduplicate_models() -> None:
     )
     assert settings.retrieval_top_k == 3
     assert settings.retrieval_score_threshold == 0.35
+    assert settings.retrieval_following_pages == 1
     assert settings.openai_api_key.get_secret_value() == "secret"
 
 

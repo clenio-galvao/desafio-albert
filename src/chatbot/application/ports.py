@@ -40,6 +40,8 @@ class RetrieverPort(Protocol):
 class VectorStorePort(RetrieverPort, Protocol):
     """Persistência usada pela ingestão e pela recuperação."""
 
+    async def ensure_indexes(self) -> None: ...
+
     async def existing_hashes(self, hashes: Sequence[str]) -> set[str]: ...
 
     async def upsert(

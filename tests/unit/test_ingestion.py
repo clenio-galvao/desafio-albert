@@ -101,6 +101,7 @@ async def test_ingestion_embeds_and_stores_only_new_chunks() -> None:
     assert result.skipped_chunks == 1
     assert embedding.inputs == ["segundo texto"]
     assert len(store.stored) == 2
+    assert store.indexes_ensured is True
 
 
 async def test_ingestion_does_not_call_embedding_when_everything_exists() -> None:

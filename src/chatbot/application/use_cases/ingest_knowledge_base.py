@@ -24,6 +24,7 @@ class IngestionService:
     async def execute(self) -> IngestionResult:
         pages = await self._source.load()
         chunks = self._chunker.split(pages)
+        await self._vector_store.ensure_indexes()
         hashes = tuple(chunk.content_hash for chunk in chunks)
         existing = await self._vector_store.existing_hashes(hashes)
         pending = tuple(chunk for chunk in chunks if chunk.content_hash not in existing)

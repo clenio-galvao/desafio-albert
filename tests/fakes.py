@@ -41,6 +41,10 @@ class FakeVectorStore:
         self.results = tuple(results)
         self.stored: dict[str, tuple[DocumentChunk, tuple[float, ...]]] = {}
         self.queries: list[str] = []
+        self.indexes_ensured = False
+
+    async def ensure_indexes(self) -> None:
+        self.indexes_ensured = True
 
     async def search(
         self,
