@@ -26,6 +26,7 @@ def test_settings_parse_and_deduplicate_models() -> None:
         "https://app.test",
         "https://admin.test",
     )
+    assert settings.retrieval_score_threshold == 0.35
     assert settings.openai_api_key.get_secret_value() == "secret"
 
 

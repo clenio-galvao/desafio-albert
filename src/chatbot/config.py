@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     chunk_overlap_tokens: int = Field(default=100, ge=0)
     embedding_batch_size: int = Field(default=32, ge=1, le=128)
     retrieval_top_k: int = Field(default=5, ge=1, le=20)
-    retrieval_score_threshold: float = Field(default=0.7, ge=0, le=1)
+    retrieval_score_threshold: float = Field(default=0.35, ge=0, le=1)
     session_ttl_seconds: int = Field(default=3600, ge=60)
     session_max_messages: int = Field(default=12, ge=2, le=50)
     retrieval_history_messages: int = Field(default=4, ge=0, le=20)
