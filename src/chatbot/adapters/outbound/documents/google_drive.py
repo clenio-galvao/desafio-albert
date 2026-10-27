@@ -30,7 +30,13 @@ class GoogleDriveFolderDownloader:
         if downloaded is None:
             raise RuntimeError("não foi possível baixar a pasta do Google Drive")
 
-        pdfs = tuple(sorted(Path(path) for path in downloaded if Path(path).suffix.lower() == ".pdf"))
+        pdfs = tuple(
+            sorted(
+                Path(path)
+                for path in downloaded
+                if Path(path).suffix.lower() == ".pdf"
+            )
+        )
         if not pdfs:
             raise RuntimeError("a pasta do Google Drive não retornou PDFs")
         return pdfs
