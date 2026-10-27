@@ -114,6 +114,7 @@ async def test_chat_stream_exposes_ordered_sse_events() -> None:
     assert response.text.count("\n\n") == 3
     assert "event: metadata" in response.text
     assert '"source":"apostila.pdf"' in response.text
+    assert '"title":"Apostila"' in response.text
     assert "event: token\ndata: {\"content\":\"Olá\"}" in response.text
     assert response.text.endswith("event: done\ndata: {}\n\n")
     assert chat.requests[0].session_id == "session-1"

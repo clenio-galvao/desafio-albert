@@ -6,6 +6,7 @@ from collections.abc import AsyncIterator, Sequence
 from openai import AsyncOpenAI
 from openai.types.chat import ChatCompletionMessageParam
 
+from chatbot.application.document_titles import document_title
 from chatbot.domain.models import DocumentChunk, Message, MessageRole
 
 SYSTEM_PROMPT = """Você responde perguntas sobre saúde mental usando somente as fontes fornecidas.
@@ -28,6 +29,7 @@ def _context_message(question: str, context: Sequence[DocumentChunk]) -> str:
         {
             "reference": f"Fonte {index}",
             "source": chunk.source,
+            "title": document_title(chunk.source),
             "page": chunk.page,
             "text": chunk.text,
         }

@@ -8,6 +8,7 @@ from chatbot.application import (
     SourcePage,
     UnsupportedModelError,
 )
+from chatbot.application.document_titles import document_title
 from chatbot.application.use_cases import ModelCatalog
 
 
@@ -40,3 +41,32 @@ def test_application_data_contracts_are_immutable_values() -> None:
     assert event.citations == ()
     assert page.page == 1
     assert result.chunks == result.embedded_chunks + result.skipped_chunks
+
+
+@pytest.mark.parametrize(
+    ("source", "title"),
+    [
+        (
+            "sma-desenvolvendo-os-cuidados-de-saude-mental-na-aps-random.pdf",
+            "Desenvolvendo os Cuidados de Saúde Mental na APS",
+        ),
+        (
+            "sma-o-sujeito-a-integralidade-e-saude-mental.pdf",
+            "O Sujeito, a Integralidade e a Saúde Mental",
+        ),
+        (
+            "sma-saude-mental-na-atencao-primaria-random.pdf",
+            "Saúde Mental na Atenção Primária",
+        ),
+        (
+            "sma-u-1-ampliando-o-conceito-de-saude-mental-random.pdf",
+            "Ampliando o Conceito de Saúde Mental",
+        ),
+        ("novo_documento.pdf", "Novo Documento"),
+    ],
+)
+def test_document_title_resolves_known_documents_and_fallback(
+    source: str,
+    title: str,
+) -> None:
+    assert document_title(source) == title

@@ -86,6 +86,7 @@ def test_chat_adapter_separates_untrusted_context_from_system_rules() -> None:
     assert injection in str(converted[3]["content"])
     assert "FONTES_NAO_CONFIAVEIS_JSON" in str(converted[3]["content"])
     assert '"reference": "Fonte 1"' in str(converted[3]["content"])
+    assert '"title": "Apostila"' in str(converted[3]["content"])
     assert "até 120 palavras" in SYSTEM_PROMPT
     assert "inclua todos os itens" in SYSTEM_PROMPT
     assert "não acrescente itens de outras fontes" in SYSTEM_PROMPT

@@ -186,7 +186,7 @@
         citations.map(item => [`${item.source}:${item.page}`, item])
       ).values()];
       sources.textContent = "Fontes: " + unique
-        .map(item => `${item.source}, p. ${item.page}`)
+        .map(item => `${item.title || item.source}, p. ${item.page}`)
         .join(" · ");
       target.append(sources);
     }
