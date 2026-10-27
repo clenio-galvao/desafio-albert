@@ -12,11 +12,13 @@ license = { text = "MIT" }
 authors = [{ name = "Clenio" }]
 dependencies = [
     "fastapi>=0.115,<1",
+    "gdown>=5.2,<6",
     "httpx>=0.28,<1",
     "openai>=1.60,<3",
     "pydantic-settings>=2.7,<3",
     "pypdf>=5.1,<7",
     "qdrant-client>=1.13,<2",
+    "tiktoken>=0.8,<1",
     "uvicorn[standard]>=0.34,<1",
 ]
 
@@ -70,7 +72,7 @@ known-first-party = ["chatbot"]
 [tool.mypy]
 python_version = "3.12"
 strict = true
-files = ["src", "tests"]
+files = ["src", "tests", "scripts"]
 plugins = ["pydantic.mypy"]
 warn_unreachable = true
 pretty = true

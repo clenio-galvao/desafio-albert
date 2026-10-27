@@ -76,14 +76,14 @@ flowchart LR
 
 ### Commit 3 — `feat: add idempotent knowledge ingestion`
 
-- [ ] Baixar apostilas sem armazená-las no Git.
-- [ ] Extrair e limpar texto preservando arquivo, título e página.
-- [ ] Implementar chunks por tokens, sobreposição e IDs determinísticos.
-- [ ] Integrar embeddings `cohere/embed-v4.0` com batching e retry.
-- [ ] Integrar Qdrant e versionar a coleção.
-- [ ] Evitar embeddings repetidos por hash.
-- [ ] Criar `scripts/ingest.py` com validação e resumo.
-- [ ] Testar todo o pipeline sem chamadas reais.
+- [x] Baixar apostilas sem armazená-las no Git.
+- [x] Extrair e limpar texto preservando arquivo, título e página.
+- [x] Implementar chunks por tokens, sobreposição e IDs determinísticos.
+- [x] Integrar embeddings `cohere/embed-v4.0` com batching e retry.
+- [x] Integrar Qdrant e versionar a coleção.
+- [x] Evitar embeddings repetidos por hash.
+- [x] Criar `scripts/ingest.py` com validação e resumo.
+- [x] Testar todo o pipeline sem chamadas reais.
 
 ### Commit 4 — `feat: add grounded conversational rag`
 

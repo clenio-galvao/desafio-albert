@@ -34,6 +34,21 @@ uvicorn chatbot.main:app --reload
 O health check inicial estará disponível em
 `http://localhost:8000/health/live`.
 
+## Preparação da base
+
+O download e a ingestão são comandos explícitos: iniciar a API não consome a
+cota dos modelos.
+
+```bash
+python scripts/download_documents.py
+python scripts/ingest.py
+```
+
+O primeiro comando salva as quatro apostilas em `data/documents`, diretório
+ignorado pelo Git. O segundo cria embeddings apenas para chunks ainda ausentes
+no Qdrant e imprime um resumo da operação. Revise as variáveis do `.env` antes
+de executá-lo, pois essa etapa realiza chamadas cobradas ao gateway.
+
 ## Segurança
 
 Copie `.env.example` para `.env` e preencha as credenciais apenas localmente.
