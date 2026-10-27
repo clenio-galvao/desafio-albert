@@ -1,6 +1,6 @@
 """Portas que isolam casos de uso de frameworks e serviços externos."""
 
-from collections.abc import AsyncIterator, Sequence
+from collections.abc import AsyncGenerator, AsyncIterator, Sequence
 from typing import Protocol
 
 from chatbot.application.models import ChatEvent, ChatRequest, IngestionResult, SourcePage
@@ -68,7 +68,7 @@ class DocumentSourcePort(Protocol):
 class AnswerQuestion(Protocol):
     """Porta de entrada do chat em streaming."""
 
-    def stream(self, request: ChatRequest) -> AsyncIterator[ChatEvent]: ...
+    def stream(self, request: ChatRequest) -> AsyncGenerator[ChatEvent, None]: ...
 
 
 class IngestKnowledgeBase(Protocol):
@@ -81,3 +81,15 @@ class ListModels(Protocol):
     """Porta de entrada da descoberta de modelos permitidos."""
 
     def execute(self) -> tuple[str, ...]: ...
+
+
+class ReadinessPort(Protocol):
+    """Verificação da dependência necessária para servir o RAG."""
+
+    async def ready(self) -> bool: ...
+
+
+class AsyncClosePort(Protocol):
+    """Recurso assíncrono encerrado no ciclo de vida da aplicação."""
+
+    async def close(self) -> None: ...

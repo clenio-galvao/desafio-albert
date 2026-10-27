@@ -16,9 +16,16 @@ def make_settings(**changes: object) -> Settings:
 
 
 def test_settings_parse_and_deduplicate_models() -> None:
-    settings = make_settings(chat_models=" model-a,model-b,model-a ")
+    settings = make_settings(
+        chat_models=" model-a,model-b,model-a ",
+        cors_origins=" https://app.test,https://admin.test,https://app.test ",
+    )
 
     assert settings.allowed_chat_models == ("model-a", "model-b")
+    assert settings.allowed_cors_origins == (
+        "https://app.test",
+        "https://admin.test",
+    )
     assert settings.openai_api_key.get_secret_value() == "secret"
 
 

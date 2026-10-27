@@ -185,3 +185,11 @@ async def test_close_releases_qdrant_client() -> None:
     await store.close()
 
     client.close.assert_awaited_once()
+
+
+async def test_ready_checks_collection() -> None:
+    store, client, _ = make_store()
+    client.collection_exists.return_value = True
+
+    assert await store.ready() is True
+    client.collection_exists.assert_awaited_once_with("knowledge-v1")

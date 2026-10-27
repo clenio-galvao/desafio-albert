@@ -1,7 +1,8 @@
-from unittest.mock import patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from httpx import ASGITransport, AsyncClient
 
+from chatbot.bootstrap import ApplicationContainer
 from chatbot.main import create_app, run
 
 
@@ -41,3 +42,15 @@ def test_run_starts_uvicorn() -> None:
         port=8000,
         reload=True,
     )
+
+
+async def test_lifespan_exposes_and_closes_injected_container() -> None:
+    container = MagicMock(spec=ApplicationContainer)
+    close = AsyncMock()
+    container.close = close
+    application = create_app(container=container)
+
+    async with application.router.lifespan_context(application):
+        assert application.state.container is container
+
+    close.assert_awaited_once()

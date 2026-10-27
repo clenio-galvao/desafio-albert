@@ -1,6 +1,6 @@
 """Orquestração do chat conversacional fundamentado."""
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator
 
 from chatbot.application.contextualization import RecentHistoryContextualizer
 from chatbot.application.exceptions import EmptyGenerationError
@@ -44,7 +44,7 @@ class GroundedChatService:
         self._retrieval_limit = retrieval_limit
         self._score_threshold = score_threshold
 
-    async def stream(self, request: ChatRequest) -> AsyncIterator[ChatEvent]:
+    async def stream(self, request: ChatRequest) -> AsyncGenerator[ChatEvent, None]:
         self._models.ensure_supported(request.model)
         user_message = Message(role=MessageRole.USER, content=request.message)
         session = await self._session_copy(request.session_id)

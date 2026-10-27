@@ -39,3 +39,6 @@ class OpenAIEmbeddingAdapter:
                 raise RuntimeError("o provedor retornou uma quantidade inesperada de embeddings")
             vectors.extend(item.embedding for item in ordered)
         return vectors
+
+    async def close(self) -> None:
+        await self._client.close()

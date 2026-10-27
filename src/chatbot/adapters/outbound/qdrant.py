@@ -21,7 +21,11 @@ class QdrantVectorStore:
     ) -> None:
         self._collection_name = collection_name
         self._embedding = embedding
-        self._client = AsyncQdrantClient(url=url, api_key=api_key)
+        self._client = AsyncQdrantClient(
+            url=url,
+            api_key=api_key,
+            check_compatibility=False,
+        )
 
     async def existing_hashes(self, hashes: Sequence[str]) -> set[str]:
         if not hashes or not await self._client.collection_exists(self._collection_name):
@@ -126,6 +130,9 @@ class QdrantVectorStore:
 
     async def close(self) -> None:
         await self._client.close()
+
+    async def ready(self) -> bool:
+        return await self._client.collection_exists(self._collection_name)
 
     async def _ensure_collection(self, dimension: int) -> None:
         if await self._client.collection_exists(self._collection_name):

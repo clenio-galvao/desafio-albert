@@ -1,0 +1,121 @@
+"""Rotas HTTP finas que delegam regras aos casos de uso."""
+
+import asyncio
+import logging
+from collections.abc import AsyncIterator
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi.responses import StreamingResponse
+
+from chatbot.adapters.inbound.api.schemas import ChatBody, HealthResponse, ModelsResponse
+from chatbot.adapters.inbound.api.sse import encode_chat_event, encode_error
+from chatbot.application.exceptions import ApplicationError, UnsupportedModelError
+from chatbot.application.models import ChatRequest
+from chatbot.bootstrap import ApplicationContainer
+
+logger = logging.getLogger(__name__)
+router = APIRouter()
+
+
+def get_container(request: Request) -> ApplicationContainer:
+    container = getattr(request.app.state, "container", None)
+    if not isinstance(container, ApplicationContainer):
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE)
+    return container
+
+
+Container = Annotated[ApplicationContainer, Depends(get_container)]
+
+
+@router.get("/health/live", response_model=HealthResponse, tags=["health"])
+async def liveness() -> HealthResponse:
+    return HealthResponse(status="ok")
+
+
+@router.get("/health/ready", response_model=HealthResponse, tags=["health"])
+async def readiness(container: Container) -> HealthResponse:
+    try:
+        ready = await container.readiness.ready()
+    except Exception:
+        logger.exception("readiness_check_failed")
+        ready = False
+    if not ready:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="base de conhecimento indisponível",
+        )
+    return HealthResponse(status="ready")
+
+
+@router.get("/v1/models", response_model=ModelsResponse, tags=["chat"])
+async def list_models(container: Container) -> ModelsResponse:
+    return ModelsResponse(models=container.models.execute())
+
+
+@router.delete(
+    "/v1/sessions/{session_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    tags=["chat"],
+)
+async def delete_session(session_id: str, container: Container) -> Response:
+    await container.sessions.delete(session_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/v1/chat/stream", response_class=StreamingResponse, tags=["chat"])
+async def stream_chat(
+    body: ChatBody,
+    request: Request,
+    container: Container,
+) -> StreamingResponse:
+    if len(body.message) > container.max_message_length:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"message excede o limite de {container.max_message_length} caracteres",
+        )
+    try:
+        container.models.ensure_supported(body.model)
+    except UnsupportedModelError as error:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=str(error),
+        ) from error
+
+    chat_request = ChatRequest(
+        session_id=body.session_id,
+        message=body.message,
+        model=body.model,
+    )
+
+    async def events() -> AsyncIterator[str]:
+        stream = container.chat.stream(chat_request)
+        try:
+            async for event in stream:
+                if await request.is_disconnected():
+                    await stream.aclose()
+                    return
+                yield encode_chat_event(event)
+        except asyncio.CancelledError:
+            raise
+        except ApplicationError:
+            logger.exception(
+                "chat_application_error",
+                extra={"session_id": body.session_id},
+            )
+            yield encode_error("Não foi possível concluir a resposta.")
+        except Exception:
+            logger.exception(
+                "chat_unexpected_error",
+                extra={"session_id": body.session_id},
+            )
+            yield encode_error("Erro interno ao gerar a resposta.")
+
+    return StreamingResponse(
+        events(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )

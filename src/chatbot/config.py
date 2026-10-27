@@ -29,6 +29,8 @@ class Settings(BaseSettings):
     session_ttl_seconds: int = Field(default=3600, ge=60)
     session_max_messages: int = Field(default=12, ge=2, le=50)
     retrieval_history_messages: int = Field(default=4, ge=0, le=20)
+    max_message_length: int = Field(default=4000, ge=100, le=20000)
+    cors_origins: str = ""
 
     @model_validator(mode="after")
     def validate_chunk_overlap(self) -> "Settings":
@@ -42,3 +44,13 @@ class Settings(BaseSettings):
         if not models:
             raise ValueError("chat_models deve conter ao menos um modelo")
         return tuple(dict.fromkeys(models))
+
+    @property
+    def allowed_cors_origins(self) -> tuple[str, ...]:
+        return tuple(
+            dict.fromkeys(
+                origin.strip()
+                for origin in self.cors_origins.split(",")
+                if origin.strip()
+            )
+        )

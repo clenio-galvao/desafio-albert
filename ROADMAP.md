@@ -97,14 +97,14 @@ flowchart LR
 
 ### Tarefa 5 — `feat: expose streaming chat api`
 
-- [ ] Criar composition root com injeção explícita.
-- [ ] Implementar chat com SSE.
-- [ ] Implementar modelos e allowlist.
-- [ ] Implementar sessões e health checks.
-- [ ] Validar entrada e padronizar erros.
-- [ ] Tratar desconexões, cancelamento e timeouts.
-- [ ] Configurar OpenAPI, CORS e logs seguros.
-- [ ] Testar HTTP e sequência SSE.
+- [x] Criar composition root com injeção explícita.
+- [x] Implementar chat com SSE.
+- [x] Implementar modelos e allowlist.
+- [x] Implementar sessões e health checks.
+- [x] Validar entrada e padronizar erros.
+- [x] Tratar desconexões, cancelamento e timeouts.
+- [x] Configurar OpenAPI, CORS e logs seguros.
+- [x] Testar HTTP e sequência SSE.
 
 ### Tarefa 6 — `feat: add live demo and api test collection`
 

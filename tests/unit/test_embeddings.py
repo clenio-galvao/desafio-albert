@@ -66,3 +66,9 @@ async def test_embedding_adapter_rejects_incomplete_provider_response() -> None:
 def test_embedding_adapter_validates_batch_size() -> None:
     with pytest.raises(ValueError, match="batch_size"):
         make_adapter(batch_size=0)
+
+
+async def test_embedding_adapter_closes_client() -> None:
+    adapter = make_adapter()
+
+    await adapter.close()
