@@ -1,11 +1,11 @@
 from collections.abc import AsyncGenerator
 
-from tests.fakes import FakeSessionRepository
-
 from chatbot.application import ChatEvent, ChatEventType, ChatRequest
 from chatbot.application.use_cases import ModelCatalog
 from chatbot.bootstrap import ApplicationContainer, build_container
 from chatbot.config import Settings
+
+from ..fakes import FakeSessionRepository
 
 
 class EmptyChat:

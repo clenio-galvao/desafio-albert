@@ -1,11 +1,12 @@
 from collections.abc import Sequence
 
 import pytest
-from tests.fakes import FakeDocumentSource, FakeEmbedding, FakeVectorStore
 
 from chatbot.application.chunking import TokenChunker
 from chatbot.application.models import SourcePage
 from chatbot.application.use_cases import IngestionService
+
+from ..fakes import FakeDocumentSource, FakeEmbedding, FakeVectorStore
 
 
 class CharacterEncoding:

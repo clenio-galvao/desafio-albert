@@ -1,5 +1,4 @@
 import pytest
-from tests.fakes import FakeLLM, FakeSessionRepository, FakeVectorStore
 
 from chatbot.application import (
     ChatEventType,
@@ -11,6 +10,8 @@ from chatbot.application.contextualization import RecentHistoryContextualizer
 from chatbot.application.use_cases import GroundedChatService, ModelCatalog
 from chatbot.application.use_cases.answer_question import INSUFFICIENT_EVIDENCE_MESSAGE
 from chatbot.domain import DocumentChunk, Message, MessageRole, RetrievedChunk
+
+from ..fakes import FakeLLM, FakeSessionRepository, FakeVectorStore
 
 
 def make_retrieved_chunk(score: float = 0.9) -> RetrievedChunk:

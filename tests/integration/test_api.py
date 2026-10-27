@@ -5,7 +5,6 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from fastapi import Request
 from httpx import ASGITransport, AsyncClient
-from tests.fakes import FakeSessionRepository
 
 from chatbot.adapters.inbound.api.router import stream_chat
 from chatbot.adapters.inbound.api.schemas import ChatBody
@@ -15,6 +14,8 @@ from chatbot.application.use_cases import ModelCatalog
 from chatbot.bootstrap import ApplicationContainer
 from chatbot.domain import ChatSession, Citation
 from chatbot.main import create_app
+
+from ..fakes import FakeSessionRepository
 
 
 class FakeReadiness:

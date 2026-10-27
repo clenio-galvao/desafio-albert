@@ -3,10 +3,11 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from qdrant_client import models
-from tests.fakes import FakeEmbedding
 
 from chatbot.adapters.outbound.qdrant import QdrantVectorStore
 from chatbot.domain.models import DocumentChunk
+
+from ..fakes import FakeEmbedding
 
 
 def make_chunk(identifier: str = "00000000-0000-0000-0000-000000000001") -> DocumentChunk:
