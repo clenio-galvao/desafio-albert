@@ -4,8 +4,8 @@
 !.env.example
 
 # Knowledge base and generated indexes
-data/
-documents/
+/data/
+/documents/
 *.pdf
 qdrant_storage/
 
