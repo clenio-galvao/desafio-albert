@@ -56,7 +56,7 @@ flowchart LR
 
 ### Commit 1 — `chore: bootstrap project and quality gates`
 
-- [ ] Criar o repositório público no GitHub e configurar `origin` e `main`.
+- [x] Criar o repositório público no GitHub e configurar `origin` e `main`.
 - [x] Inicializar Python 3.12, layout `src` e gerenciamento de dependências.
 - [x] Adicionar `.gitignore`, `.env.example`, licença e configurações.
 - [x] Configurar Ruff, análise de tipos, pytest e cobertura de branches ≥90%.
@@ -66,13 +66,13 @@ flowchart LR
 
 ### Commit 2 — `feat: add domain and application ports`
 
-- [ ] Criar `Message`, `ChatSession`, `DocumentChunk` e `Citation`.
-- [ ] Definir exceções e regras de domínio.
-- [ ] Definir portas para LLM, embeddings, recuperação e sessões.
-- [ ] Criar `AnswerQuestion`, `IngestKnowledgeBase` e `ListModels`.
-- [ ] Implementar fakes determinísticos de teste.
-- [ ] Cobrir regras e contratos com testes unitários.
-- [ ] Impedir imports de FastAPI, OpenAI e Qdrant no núcleo.
+- [x] Criar `Message`, `ChatSession`, `DocumentChunk` e `Citation`.
+- [x] Definir exceções e regras de domínio.
+- [x] Definir portas para LLM, embeddings, recuperação e sessões.
+- [x] Criar `AnswerQuestion`, `IngestKnowledgeBase` e `ListModels`.
+- [x] Implementar fakes determinísticos de teste.
+- [x] Cobrir regras e contratos com testes unitários.
+- [x] Impedir imports de FastAPI, OpenAI e Qdrant no núcleo.
 
 ### Commit 3 — `feat: add idempotent knowledge ingestion`
 
