@@ -1,0 +1,163 @@
+# Roadmap — Chatbot RAG
+
+API FastAPI em arquitetura hexagonal, com RAG persistido no Qdrant, streaming
+SSE, seleção de modelos OpenAI-compatible e memória de sessão no backend.
+
+## Arquitetura-alvo
+
+```mermaid
+flowchart LR
+    Client[Cliente] -->|"POST /v1/chat/stream"| Api[Adapter FastAPI SSE]
+    Api --> Chat[UseCase AnswerQuestion]
+    Chat --> SessionPort[SessionRepositoryPort]
+    Chat --> RetrieverPort[RetrieverPort]
+    Chat --> LlmPort[LLMPort]
+    SessionPort --> Memory[Memória TTL]
+    RetrieverPort --> Qdrant[Qdrant Cloud]
+    LlmPort --> Gateway[API OpenAI-compatible]
+    Ingest[UseCase IngestDocuments] --> EmbedPort[EmbeddingPort]
+    EmbedPort --> Gateway
+    Ingest --> Qdrant
+    Drive[Google Drive e PDFs] --> Ingest
+```
+
+- `domain`: entidades e regras puras, sem dependências de infraestrutura.
+- `application`: casos de uso e portas de entrada e saída.
+- `adapters/inbound`: FastAPI, schemas, SSE e página de demonstração.
+- `adapters/outbound`: OpenAI-compatible, Qdrant, PDFs e sessões em memória.
+- `bootstrap.py`: composição e injeção explícita das dependências.
+
+## Contratos planejados
+
+- `POST /v1/chat/stream`: `session_id`, `message` e `model`; eventos
+  `metadata`, `token`, `done` e `error`.
+- `GET /v1/models`: lista dos modelos autorizados.
+- `DELETE /v1/sessions/{session_id}`: remove o histórico temporário.
+- `GET /health/live` e `GET /health/ready`: saúde do processo e dependências.
+- `GET /demo`: chat mínimo com streaming, fontes, modelo e sessão.
+
+## Decisões principais
+
+- Qdrant Cloud gratuito evita reindexação em cada cold start do Render.
+- A ingestão é offline e idempotente por hash; PDFs não entram no Git.
+- O histórico fica em memória, com TTL e limites. A porta permitirá trocar por
+  Redis sem alterar os casos de uso.
+- O RAG reformula perguntas de acompanhamento, aplica limiar de relevância,
+  exige fontes e recusa respostas sem evidência suficiente.
+- Documentos são conteúdo não confiável: instruções encontradas neles são
+  ignoradas e o contexto é delimitado no prompt.
+- Swagger cobre contratos comuns; `/demo` é a apresentação principal;
+  Postman e `curl -N` validam o streaming de forma independente.
+- A CI usa fakes e mocks; chamadas pagas ficam restritas à ingestão e às
+  avaliações manuais controladas.
+- Cobertura de branches mínima de 90%, sem substituir testes comportamentais.
+
+## Checklist por commit
+
+### Commit 1 — `chore: bootstrap project and quality gates`
+
+- [ ] Criar o repositório público no GitHub e configurar `origin` e `main`.
+- [x] Inicializar Python 3.12, layout `src` e gerenciamento de dependências.
+- [x] Adicionar `.gitignore`, `.env.example`, licença e configurações.
+- [x] Configurar Ruff, análise de tipos, pytest e cobertura de branches ≥90%.
+- [x] Criar GitHub Actions para push e pull request.
+- [x] Adicionar aplicação e teste mínimos para validar o pipeline.
+- [x] Confirmar ausência de chaves, PDFs e arquivos sensíveis.
+
+### Commit 2 — `feat: add domain and application ports`
+
+- [ ] Criar `Message`, `ChatSession`, `DocumentChunk` e `Citation`.
+- [ ] Definir exceções e regras de domínio.
+- [ ] Definir portas para LLM, embeddings, recuperação e sessões.
+- [ ] Criar `AnswerQuestion`, `IngestKnowledgeBase` e `ListModels`.
+- [ ] Implementar fakes determinísticos de teste.
+- [ ] Cobrir regras e contratos com testes unitários.
+- [ ] Impedir imports de FastAPI, OpenAI e Qdrant no núcleo.
+
+### Commit 3 — `feat: add idempotent knowledge ingestion`
+
+- [ ] Baixar apostilas sem armazená-las no Git.
+- [ ] Extrair e limpar texto preservando arquivo, título e página.
+- [ ] Implementar chunks por tokens, sobreposição e IDs determinísticos.
+- [ ] Integrar embeddings `cohere/embed-v4.0` com batching e retry.
+- [ ] Integrar Qdrant e versionar a coleção.
+- [ ] Evitar embeddings repetidos por hash.
+- [ ] Criar `scripts/ingest.py` com validação e resumo.
+- [ ] Testar todo o pipeline sem chamadas reais.
+
+### Commit 4 — `feat: add grounded conversational rag`
+
+- [ ] Criar sessões em memória com TTL e limites.
+- [ ] Contextualizar perguntas com o histórico recente.
+- [ ] Recuperar com `top_k`, filtros e limiar configuráveis.
+- [ ] Criar prompt delimitado com política de recusa.
+- [ ] Vincular citações a apostila e página.
+- [ ] Implementar chat OpenAI-compatible assíncrono e intercambiável.
+- [ ] Testar contexto, recusa, citações, modelos e prompt injection.
+
+### Commit 5 — `feat: expose streaming chat api`
+
+- [ ] Criar composition root com injeção explícita.
+- [ ] Implementar chat com SSE.
+- [ ] Implementar modelos e allowlist.
+- [ ] Implementar sessões e health checks.
+- [ ] Validar entrada e padronizar erros.
+- [ ] Tratar desconexões, cancelamento e timeouts.
+- [ ] Configurar OpenAPI, CORS e logs seguros.
+- [ ] Testar HTTP e sequência SSE.
+
+### Commit 6 — `feat: add live demo and api test collection`
+
+- [ ] Criar `/demo` sem framework frontend.
+- [ ] Consumir o `ReadableStream` incrementalmente.
+- [ ] Adicionar modelo, sessão e estados de erro.
+- [ ] Exibir resposta e fontes de forma acessível.
+- [ ] Garantir que nenhuma chave chegue ao navegador.
+- [ ] Criar coleção Postman e exemplos `curl -N`.
+- [ ] Testar rota, assets e comportamento essencial.
+
+### Commit 7 — `test: add integration and rag evaluation suites`
+
+- [ ] Testar adapters OpenAI-compatible e Qdrant isoladamente.
+- [ ] Testar streaming parcial, falhas e desconexões.
+- [ ] Testar reingestão, PDFs inválidos e dependências indisponíveis.
+- [ ] Criar dataset com perguntas respondíveis, recusas e múltiplos turnos.
+- [ ] Avaliar recuperação, citações, groundedness e recusa.
+- [ ] Separar testes offline de avaliações reais.
+- [ ] Atingir cobertura de branches ≥90%.
+- [ ] Validar suíte, lint e tipos.
+
+### Commit 8 — `docs: add architecture usage and ai disclosure`
+
+- [ ] Documentar objetivo, escopo, arquitetura e fluxo RAG.
+- [ ] Documentar instalação, configuração, ingestão, execução e testes.
+- [ ] Documentar API, Swagger, demo, Postman e `curl`.
+- [ ] Descrever as apostilas e seu processamento sem publicá-las.
+- [ ] Registrar decisões, alternativas, trade-offs e limitações.
+- [ ] Explicar segurança, custos, avaliação e cobertura.
+- [ ] Relatar de forma transparente o uso de IA.
+- [ ] Criar ADRs para as decisões relevantes.
+- [ ] Adicionar roteiro de demonstração e troubleshooting.
+
+### Commit 9 — `deploy: configure render service`
+
+- [ ] Criar e validar Dockerfile executado como usuário não-root.
+- [ ] Criar `render.yaml` com health check.
+- [ ] Configurar segredos somente no Render e Qdrant.
+- [ ] Executar ingestão idempotente e validar a coleção.
+- [ ] Publicar e registrar a URL no README.
+- [ ] Executar smoke test completo.
+- [ ] Validar e documentar o cold start.
+- [ ] Confirmar CI, cobertura e histórico sem segredos.
+
+## Critérios de aceite
+
+- Tokens são entregues antes de a resposta terminar.
+- Os dois modelos usam o mesmo endpoint e nomes inválidos são rejeitados.
+- Respostas têm fontes; evidência insuficiente gera recusa.
+- A sessão mantém o contexto sem permitir crescimento ilimitado.
+- Reingestão sem mudanças não recria embeddings.
+- CI passa em lint, tipos, testes e cobertura de branches ≥90%.
+- Demo, Swagger, Postman e `curl` permitem testar a aplicação publicada.
+- README e ADRs permitem explicar decisões, alternativas e uso de IA.
+- GitHub não contém segredos, PDFs ou dados sensíveis.
