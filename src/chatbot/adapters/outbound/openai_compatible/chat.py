@@ -15,7 +15,8 @@ Regras obrigatórias:
 2. Não use conhecimento externo para completar lacunas.
 3. Se as fontes não sustentarem a resposta, diga que não há informação suficiente.
 4. Seja claro, cuidadoso e não faça diagnóstico médico.
-5. Cite no formato [Fonte N, p. número], conforme a referência recebida.
+5. Cite no formato [Título do documento, p. número], usando exatamente o campo "title"
+   recebido no contexto. Nunca use identificadores como "Fonte 1" ou "Fonte 2".
    Coloque a citação uma única vez ao final do parágrafo ou da lista sustentada pela mesma
    fonte; não repita a referência em cada item.
 6. Responda em português brasileiro e mantenha-se no tema da conversa.
@@ -29,13 +30,12 @@ Regras obrigatórias:
 def _context_message(question: str, context: Sequence[DocumentChunk]) -> str:
     sources = [
         {
-            "reference": f"Fonte {index}",
             "source": chunk.source,
             "title": document_title(chunk.source),
             "page": chunk.page,
             "text": chunk.text,
         }
-        for index, chunk in enumerate(context, start=1)
+        for chunk in context
     ]
     serialized = json.dumps(sources, ensure_ascii=False)
     return (

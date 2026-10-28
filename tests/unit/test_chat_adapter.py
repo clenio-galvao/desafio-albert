@@ -85,12 +85,13 @@ def test_chat_adapter_separates_untrusted_context_from_system_rules() -> None:
     assert converted[2] == {"role": "assistant", "content": "resposta anterior"}
     assert injection in str(converted[3]["content"])
     assert "FONTES_NAO_CONFIAVEIS_JSON" in str(converted[3]["content"])
-    assert '"reference": "Fonte 1"' in str(converted[3]["content"])
     assert '"title": "Apostila"' in str(converted[3]["content"])
+    assert '"reference"' not in str(converted[3]["content"])
     assert "até 120 palavras" in SYSTEM_PROMPT
     assert "inclua todos os itens" in SYSTEM_PROMPT
     assert "não acrescente itens de outras fontes" in SYSTEM_PROMPT
     assert "não repita a referência em cada item" in SYSTEM_PROMPT
+    assert 'Nunca use identificadores como "Fonte 1"' in SYSTEM_PROMPT
 
 
 @pytest.mark.parametrize(
