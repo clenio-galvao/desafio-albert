@@ -90,6 +90,7 @@ def test_chat_adapter_separates_untrusted_context_from_system_rules() -> None:
     assert "até 120 palavras" in SYSTEM_PROMPT
     assert "inclua todos os itens" in SYSTEM_PROMPT
     assert "não acrescente itens de outras fontes" in SYSTEM_PROMPT
+    assert "não repita a referência em cada item" in SYSTEM_PROMPT
 
 
 @pytest.mark.parametrize(

@@ -178,15 +178,31 @@
       return { element, content };
     }
 
+    function formatPages(pages) {
+      const sorted = [...new Set(pages)].sort((a, b) => a - b);
+      const ranges = [];
+      for (const page of sorted) {
+        const last = ranges.at(-1);
+        if (last && page === last[1] + 1) last[1] = page;
+        else ranges.push([page, page]);
+      }
+      return ranges
+        .map(([start, end]) => start === end ? `${start}` : `${start}–${end}`)
+        .join(", ");
+    }
+
     function showSources(target, citations) {
       if (!citations?.length) return;
       const sources = document.createElement("div");
       sources.className = "sources";
-      const unique = [...new Map(
-        citations.map(item => [`${item.source}:${item.page}`, item])
-      ).values()];
-      sources.textContent = "Fontes: " + unique
-        .map(item => `${item.title || item.source}, p. ${item.page}`)
+      const grouped = new Map();
+      for (const item of citations) {
+        const title = item.title || item.source;
+        if (!grouped.has(title)) grouped.set(title, []);
+        grouped.get(title).push(item.page);
+      }
+      sources.textContent = "Fontes consultadas: " + [...grouped]
+        .map(([title, pages]) => `${title}, p. ${formatPages(pages)}`)
         .join(" · ");
       target.append(sources);
     }

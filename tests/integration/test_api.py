@@ -268,5 +268,7 @@ async def test_demo_contains_streaming_client_without_backend_secrets() -> None:
     assert 'fetch("/v1/models")' in response.text
     assert 'fetch("/v1/chat/stream"' in response.text
     assert "response.body.getReader()" in response.text
+    assert "Fontes consultadas:" in response.text
+    assert "formatPages(pages)" in response.text
     assert "OPENAI_API_KEY" not in response.text
     assert "QDRANT_API_KEY" not in response.text
