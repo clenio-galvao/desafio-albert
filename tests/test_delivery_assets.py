@@ -49,3 +49,17 @@ def test_documentation_links_architecture_decisions_and_demo_guide() -> None:
     for number in range(1, 5):
         filename = next(Path("docs/adr").glob(f"{number:04d}-*.md"))
         assert filename.name in adr_index
+
+
+def test_deployment_files_use_non_root_user_and_external_secrets() -> None:
+    dockerfile = Path("Dockerfile").read_text(encoding="utf-8")
+    blueprint = Path("render.yaml").read_text(encoding="utf-8")
+    dockerignore = Path(".dockerignore").read_text(encoding="utf-8")
+
+    assert "USER chatbot" in dockerfile
+    assert "${PORT:-8000}" in dockerfile
+    assert "healthCheckPath: /health/ready" in blueprint
+    assert blueprint.count("sync: false") == 4
+    assert "replace-me" not in blueprint
+    assert ".env" in dockerignore
+    assert "data" in dockerignore

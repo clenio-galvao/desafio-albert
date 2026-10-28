@@ -185,6 +185,24 @@ python scripts/evaluate_rag.py --confirm-live
 Também são aceitos `--base-url`, `--model` e `--dataset`. Esse comando consome
 cota e não é executado pela CI.
 
+## Deploy no Render
+
+O repositório contém `Dockerfile` e `render.yaml`. A imagem instala somente a
+aplicação e executa como usuário sem privilégios; PDFs, testes, `.env` e dados
+locais não entram no build.
+
+1. Envie a branch principal ao GitHub.
+2. No Render, crie um Blueprint a partir do repositório.
+3. Preencha os quatro valores marcados com `sync: false`:
+   `OPENAI_BASE_URL`, `OPENAI_API_KEY`, `QDRANT_URL` e `QDRANT_API_KEY`.
+4. Confirme que `QDRANT_COLLECTION` aponta para a coleção já ingerida.
+5. Aguarde `/health/ready` ficar saudável e valide `/demo`.
+
+A aplicação respeita a variável `PORT` da plataforma. A ingestão não ocorre
+durante o deploy; a coleção deve estar pronta no Qdrant. Em plano gratuito, o
+primeiro acesso depois de um período ocioso pode sofrer cold start. A URL
+pública será registrada aqui após a publicação.
+
 ## Mídias presentes nas apostilas
 
 Na implementação atual, a ingestão processa somente o texto extraível dos

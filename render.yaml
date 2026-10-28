@@ -1,0 +1,41 @@
+services:
+  - type: web
+    name: desafio-albert-chatbot
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health/ready
+    autoDeployTrigger: commit
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: LOG_LEVEL
+        value: INFO
+      - key: OPENAI_BASE_URL
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: CHAT_MODELS
+        value: azure/gpt-5-mini,azure/gpt-6-luna
+      - key: EMBEDDING_MODEL
+        value: cohere/embed-v4.0
+      - key: QDRANT_URL
+        sync: false
+      - key: QDRANT_API_KEY
+        sync: false
+      - key: QDRANT_COLLECTION
+        value: mental-health-v1
+      - key: RETRIEVAL_TOP_K
+        value: "3"
+      - key: RETRIEVAL_SCORE_THRESHOLD
+        value: "0.35"
+      - key: RETRIEVAL_FOLLOWING_PAGES
+        value: "1"
+      - key: SESSION_TTL_SECONDS
+        value: "3600"
+      - key: SESSION_MAX_MESSAGES
+        value: "12"
+      - key: RETRIEVAL_HISTORY_MESSAGES
+        value: "4"
+      - key: MAX_MESSAGE_LENGTH
+        value: "4000"
