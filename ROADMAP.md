@@ -141,7 +141,7 @@ flowchart LR
 
 ### Tarefa 9 — `deploy: configure render service`
 
-- [ ] Criar e validar Dockerfile executado como usuário não-root.
+- [x] Criar e validar Dockerfile executado como usuário não-root.
 - [x] Criar `render.yaml` com health check.
 - [ ] Configurar segredos somente no Render e Qdrant.
 - [x] Executar ingestão idempotente e validar a coleção.
