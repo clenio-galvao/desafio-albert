@@ -129,15 +129,15 @@ flowchart LR
 
 ### Tarefa 8 — `docs: add architecture usage and ai disclosure`
 
-- [ ] Documentar objetivo, escopo, arquitetura e fluxo RAG.
-- [ ] Documentar instalação, configuração, ingestão, execução e testes.
-- [ ] Documentar API, Swagger, demo, Postman e `curl`.
-- [ ] Descrever as apostilas e seu processamento sem publicá-las.
-- [ ] Registrar decisões, alternativas, trade-offs e limitações.
-- [ ] Explicar segurança, custos, avaliação e cobertura.
-- [ ] Relatar de forma transparente o uso de IA.
-- [ ] Criar ADRs para as decisões relevantes.
-- [ ] Adicionar roteiro de demonstração e troubleshooting.
+- [x] Documentar objetivo, escopo, arquitetura e fluxo RAG.
+- [x] Documentar instalação, configuração, ingestão, execução e testes.
+- [x] Documentar API, Swagger, demo, Postman e `curl`.
+- [x] Descrever as apostilas e seu processamento sem publicá-las.
+- [x] Registrar decisões, alternativas, trade-offs e limitações.
+- [x] Explicar segurança, custos, avaliação e cobertura.
+- [x] Relatar de forma transparente o uso de IA.
+- [x] Criar ADRs para as decisões relevantes.
+- [x] Adicionar roteiro de demonstração e troubleshooting.
 
 ### Tarefa 9 — `deploy: configure render service`
 
