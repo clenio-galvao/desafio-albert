@@ -235,11 +235,19 @@ locais não entram no build.
 - Swagger público: <https://desafio-albert-chatbot.onrender.com/docs>;
 - Health check: <https://desafio-albert-chatbot.onrender.com/health/ready>.
 
-1. Envie a branch principal ao GitHub.
+O serviço está ligado ao GitHub. Cada push em `main` dispara a CI em
+`.github/workflows/ci.yml`. O Blueprint usa `autoDeployTrigger: checksPass`: o
+Render só publica a imagem depois de lint, tipos, testes e cobertura passarem.
+Não há um segundo workflow de deploy nem passo manual a cada commit.
+
+A primeira configuração, uma vez:
+
+1. Envie a branch `main` ao GitHub.
 2. No Render, crie um Blueprint a partir do repositório.
 3. Preencha os quatro valores marcados com `sync: false`:
    `OPENAI_BASE_URL`, `OPENAI_API_KEY`, `QDRANT_URL` e `QDRANT_API_KEY`.
-4. Confirme que `QDRANT_COLLECTION` aponta para a coleção já ingerida.
+4. Confirme que `QDRANT_COLLECTION` aponta para a coleção já ingerida e que
+   Auto-Deploy está em After CI Checks Pass.
 5. Aguarde `/health/ready` ficar saudável e valide `/demo`.
 
 A aplicação respeita a variável `PORT` da plataforma. A ingestão não ocorre
@@ -389,6 +397,8 @@ tests/                testes unitários, integração e avaliação offline
 docs/adr/             decisões arquiteturais
 docs/postman/         coleção para teste manual
 .cursor/rules/        convenções persistentes de código e testes
+.github/workflows/    CI que libera o auto-deploy no Render
+render.yaml           Blueprint com deploy após a CI
 ROADMAP.md            tarefas e histórico de execução
 ```
 

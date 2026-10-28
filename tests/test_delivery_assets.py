@@ -73,6 +73,7 @@ def test_deployment_files_use_non_root_user_and_external_secrets() -> None:
     assert "USER chatbot" in dockerfile
     assert "${PORT:-8000}" in dockerfile
     assert "healthCheckPath: /health/ready" in blueprint
+    assert "autoDeployTrigger: checksPass" in blueprint
     assert blueprint.count("sync: false") == 4
     assert "replace-me" not in blueprint
     assert ".env" in dockerignore
