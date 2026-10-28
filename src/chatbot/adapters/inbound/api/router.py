@@ -2,7 +2,7 @@
 
 import asyncio
 import logging
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator, AsyncIterator
 from typing import Annotated, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
@@ -11,7 +11,7 @@ from fastapi.responses import StreamingResponse
 from chatbot.adapters.inbound.api.schemas import ChatBody, HealthResponse, ModelsResponse
 from chatbot.adapters.inbound.api.sse import encode_chat_event, encode_error
 from chatbot.application.exceptions import ApplicationError, ChatValidationError
-from chatbot.application.models import ChatRequest
+from chatbot.application.models import ChatEvent, ChatRequest
 from chatbot.application.ports import ApplicationServices
 
 logger = logging.getLogger(__name__)
@@ -82,14 +82,27 @@ async def stream_chat(
             detail=str(error),
         ) from error
 
+    admitted = await container.stream_gate.try_acquire()
+    if not admitted:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="muitas respostas em andamento; tente novamente em instantes",
+        )
+
     async def events() -> AsyncIterator[str]:
         stream = container.chat.stream(chat_request)
         try:
-            async for event in stream:
-                if await request.is_disconnected():
-                    await stream.aclose()
-                    return
-                yield encode_chat_event(event)
+            timeout = container.stream_timeout_seconds
+            if timeout > 0:
+                async with asyncio.timeout(timeout):
+                    async for event in _iter_chat_events(request, stream):
+                        yield encode_chat_event(event)
+            else:
+                async for event in _iter_chat_events(request, stream):
+                    yield encode_chat_event(event)
+        except TimeoutError:
+            logger.warning("chat_stream_timeout", extra={"session_id": body.session_id})
+            yield encode_error("tempo esgotado ao gerar a resposta.")
         except asyncio.CancelledError:
             raise
         except ApplicationError:
@@ -104,6 +117,8 @@ async def stream_chat(
                 extra={"session_id": body.session_id},
             )
             yield encode_error("Erro interno ao gerar a resposta.")
+        finally:
+            await container.stream_gate.release()
 
     return StreamingResponse(
         events(),
@@ -113,3 +128,16 @@ async def stream_chat(
             "X-Accel-Buffering": "no",
         },
     )
+
+
+async def _iter_chat_events(
+    request: Request,
+    stream: AsyncGenerator[ChatEvent, None],
+) -> AsyncIterator[ChatEvent]:
+    try:
+        async for event in stream:
+            if await request.is_disconnected():
+                return
+            yield event
+    finally:
+        await stream.aclose()

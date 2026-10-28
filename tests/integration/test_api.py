@@ -15,6 +15,7 @@ from chatbot.application.exceptions import (
     MessageTooLongError,
     UnsupportedModelError,
 )
+from chatbot.application.stream_gate import ConcurrentStreamGate
 from chatbot.application.use_cases import ModelCatalog
 from chatbot.bootstrap import ApplicationContainer
 from chatbot.domain import Citation
@@ -228,6 +229,88 @@ async def test_chat_converts_stream_failures_to_safe_error_events(
     assert "event: error" in response.text
     assert expected in response.text
     assert "falha" not in response.text
+
+
+async def test_chat_rejects_overflow_before_opening_sse() -> None:
+    started = asyncio.Event()
+    release = asyncio.Event()
+
+    class BlockingChat(FakeChat):
+        async def stream(self, request: ChatRequest) -> AsyncGenerator[ChatEvent, None]:
+            started.set()
+            await release.wait()
+            async for event in super().stream(request):
+                yield event
+
+    container = ApplicationContainer(
+        chat=BlockingChat(),
+        models=ModelCatalog(["model-a"]),
+        end_session=FakeEndSession(),
+        readiness=FakeReadiness(),
+        stream_gate=ConcurrentStreamGate(1),
+    )
+    async with make_client(container) as client:
+        first = asyncio.create_task(
+            client.post(
+                "/v1/chat/stream",
+                json={"session_id": "one", "message": "pergunta", "model": "model-a"},
+            )
+        )
+        await asyncio.wait_for(started.wait(), timeout=2)
+        denied = await client.post(
+            "/v1/chat/stream",
+            json={"session_id": "two", "message": "pergunta", "model": "model-a"},
+        )
+        release.set()
+        completed = await first
+
+    assert denied.status_code == 429
+    assert "muitas respostas" in denied.json()["detail"]
+    assert completed.status_code == 200
+
+
+async def test_chat_stream_without_timeout_still_completes() -> None:
+    container = ApplicationContainer(
+        chat=FakeChat(),
+        models=ModelCatalog(["model-a"]),
+        end_session=FakeEndSession(),
+        readiness=FakeReadiness(),
+        stream_timeout_seconds=0,
+    )
+    async with make_client(container) as client:
+        response = await client.post(
+            "/v1/chat/stream",
+            json={"session_id": "session", "message": "pergunta", "model": "model-a"},
+        )
+
+    assert response.status_code == 200
+    assert "event: done" in response.text
+
+
+async def test_chat_emits_timeout_error_when_generation_exceeds_limit() -> None:
+    class SlowChat(FakeChat):
+        async def stream(self, request: ChatRequest) -> AsyncGenerator[ChatEvent, None]:
+            yield ChatEvent(type=ChatEventType.METADATA)
+            await asyncio.sleep(1)
+            yield ChatEvent(type=ChatEventType.TOKEN, content="tarde")
+            yield ChatEvent(type=ChatEventType.DONE)
+
+    container = ApplicationContainer(
+        chat=SlowChat(),
+        models=ModelCatalog(["model-a"]),
+        end_session=FakeEndSession(),
+        readiness=FakeReadiness(),
+        stream_timeout_seconds=0.05,
+    )
+    async with make_client(container) as client:
+        response = await client.post(
+            "/v1/chat/stream",
+            json={"session_id": "session", "message": "pergunta", "model": "model-a"},
+        )
+
+    assert response.status_code == 200
+    assert "event: error" in response.text
+    assert "tempo esgotado" in response.text
 
 
 async def test_chat_stops_stream_when_client_disconnects() -> None:

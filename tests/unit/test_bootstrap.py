@@ -5,7 +5,12 @@ import pytest
 from chatbot.application import ChatEvent, ChatEventType, ChatRequest
 from chatbot.application.exceptions import MessageTooLongError
 from chatbot.application.use_cases import ModelCatalog
-from chatbot.bootstrap import ApplicationContainer, build_container, build_ingestion
+from chatbot.bootstrap import (
+    ApplicationContainer,
+    build_container,
+    build_ingestion,
+    build_load_container,
+)
 from chatbot.config import Settings
 
 
@@ -78,3 +83,27 @@ async def test_build_container_composes_real_adapters_without_network_calls() ->
     ingestion = build_ingestion(settings)
     assert len(ingestion.resources) == 2
     await ingestion.close()
+
+
+async def test_build_load_container_serves_chat_without_external_clients() -> None:
+    container = build_load_container(token_delay_seconds=0.0, max_concurrent_streams=2)
+
+    assert await container.stream_gate.try_acquire() is True
+    assert await container.stream_gate.try_acquire() is True
+    assert await container.stream_gate.try_acquire() is False
+    await container.stream_gate.release()
+    await container.stream_gate.release()
+
+    events = [
+        event
+        async for event in container.chat.stream(
+            ChatRequest(
+                session_id="load",
+                message="pergunta",
+                model="azure/gpt-5-mini",
+            )
+        )
+    ]
+    assert events[0].type is ChatEventType.METADATA
+    assert events[-1].type is ChatEventType.DONE
+    assert await container.readiness.execute() is True

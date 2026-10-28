@@ -270,6 +270,34 @@ avaliação profissional e não deve realizar diagnóstico médico.
 - O Qdrant externo evita reconstruir o índice no ambiente gratuito.
 - A avaliação real nunca roda automaticamente.
 
+## Escalabilidade
+
+Cada usuário recebe a resposta no próprio SSE. O Uvicorn multiplexa as
+conexões no mesmo processo (`WEB_CONCURRENCY=1` no Render Free). Não há fila
+única: o que limita o conjunto é a instância, o teto `MAX_CONCURRENT_STREAMS`
+(HTTP 429) e a cota do gateway.
+
+Teste de carga **local**, sem gastar cota:
+
+```bash
+python scripts/load_test.py --users 25 --requests 100
+```
+
+Resultado em 2026-10-28: 100 streams concluídos, 0% de erro, primeiro token
+p95 de 90 ms. A API aguenta o cenário de 25 usuários simultâneos; o ponto
+fraco em produção é o LLM/embedding, não o FastAPI.
+
+Perfil publicado, no máximo 5 requisições reais:
+
+```bash
+python scripts/load_test.py --target https://desafio-albert-chatbot.onrender.com --users 1 --requests 3
+```
+
+Se a carga real for insatisfatória, a ordem é: 429 e timeout (já ativos),
+depois Redis no `SessionRepositoryPort`, e só então mais workers ou plano do
+Render. Subir réplicas antes do Redis quebra o histórico da conversa. Detalhes
+em [ADR 0005](docs/adr/0005-escalabilidade-carga.md).
+
 ## Decisões e limitações
 
 - Sessões em memória simplificam a entrega; múltiplas réplicas exigiriam Redis
@@ -299,7 +327,7 @@ validar resultados e controlar chamadas que consomem orçamento.
 
 ```text
 src/chatbot/          aplicação, domínio e adapters
-scripts/              download, ingestão e avaliação real
+scripts/              download, ingestão, avaliação real e carga
 evaluation/           dataset versionado de avaliação
 tests/                testes unitários, integração e avaliação offline
 docs/adr/             decisões arquiteturais

@@ -144,6 +144,14 @@ class AsyncClosePort(Protocol):
     async def close(self) -> None: ...
 
 
+class StreamGate(Protocol):
+    """Admissão de streams simultâneos antes de o SSE começar."""
+
+    async def try_acquire(self) -> bool: ...
+
+    async def release(self) -> None: ...
+
+
 class ApplicationServices(Protocol):
     """Fachada de portas de entrada disponibilizada aos adapters."""
 
@@ -158,3 +166,9 @@ class ApplicationServices(Protocol):
 
     @property
     def readiness(self) -> CheckReadiness: ...
+
+    @property
+    def stream_gate(self) -> StreamGate: ...
+
+    @property
+    def stream_timeout_seconds(self) -> float: ...

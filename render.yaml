@@ -41,3 +41,7 @@ services:
         value: "4"
       - key: MAX_MESSAGE_LENGTH
         value: "4000"
+      - key: MAX_CONCURRENT_STREAMS
+        value: "32"
+      - key: STREAM_TIMEOUT_SECONDS
+        value: "60"

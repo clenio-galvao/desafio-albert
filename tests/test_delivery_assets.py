@@ -36,6 +36,7 @@ def test_rag_evaluation_dataset_covers_core_scenarios() -> None:
         if case["answerable"]
     )
     assert Path("scripts/evaluate_rag.py").is_file()
+    assert Path("scripts/load_test.py").is_file()
 
 
 def test_documentation_links_architecture_decisions_and_demo_guide() -> None:
@@ -45,8 +46,9 @@ def test_documentation_links_architecture_decisions_and_demo_guide() -> None:
     assert "[docs/adr](docs/adr/README.md)" in readme
     assert "[docs/DEMO.md](docs/DEMO.md)" in readme
     assert "Uso de IA no desenvolvimento" in readme
+    assert "python scripts/load_test.py" in readme
     assert "Troubleshooting" in Path("docs/DEMO.md").read_text(encoding="utf-8")
-    for number in range(1, 5):
+    for number in range(1, 6):
         filename = next(Path("docs/adr").glob(f"{number:04d}-*.md"))
         assert filename.name in adr_index
 

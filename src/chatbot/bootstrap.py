@@ -1,8 +1,10 @@
 """Composition root: único local que conhece todas as implementações."""
 
-from dataclasses import dataclass
+from collections.abc import Sequence
+from dataclasses import dataclass, field
 
 from chatbot.adapters.outbound.documents import PdfDirectorySource
+from chatbot.adapters.outbound.load_doubles import AlwaysReady, LoadLLM, LoadRetriever
 from chatbot.adapters.outbound.memory_sessions import InMemorySessionRepository
 from chatbot.adapters.outbound.openai_compatible import (
     OpenAIChatAdapter,
@@ -19,9 +21,11 @@ from chatbot.application.ports import (
     EndSession,
     IngestKnowledgeBase,
     ListModels,
+    StreamGate,
 )
 from chatbot.application.prompting import GroundedPromptBuilder
 from chatbot.application.retrieval import SemanticRetriever
+from chatbot.application.stream_gate import ConcurrentStreamGate, UnlimitedStreamGate
 from chatbot.application.use_cases import (
     EndSessionService,
     GroundedChatService,
@@ -40,6 +44,8 @@ class ApplicationContainer:
     models: ListModels
     end_session: EndSession
     readiness: CheckReadiness
+    stream_gate: StreamGate = field(default_factory=UnlimitedStreamGate)
+    stream_timeout_seconds: float = 60.0
     resources: tuple[AsyncClosePort, ...] = ()
 
     async def close(self) -> None:
@@ -105,7 +111,41 @@ def build_container(settings: Settings) -> ApplicationContainer:
         models=models,
         end_session=EndSessionService(sessions),
         readiness=ReadinessService(vector_store),
+        stream_gate=ConcurrentStreamGate(settings.max_concurrent_streams),
+        stream_timeout_seconds=settings.stream_timeout_seconds,
         resources=(embedding, vector_store, llm),
+    )
+
+
+def build_load_container(
+    *,
+    models: Sequence[str] = ("azure/gpt-5-mini", "azure/gpt-6-luna"),
+    token_delay_seconds: float = 0.005,
+    max_concurrent_streams: int = 10_000,
+    stream_timeout_seconds: float = 60.0,
+) -> ApplicationContainer:
+    """Monta a API com dublês para teste de carga sem cota externa."""
+    sessions = InMemorySessionRepository(ttl_seconds=3600, max_sessions=10_000)
+    catalog = ModelCatalog(tuple(models))
+    chat = GroundedChatService(
+        llm=LoadLLM(delay_seconds=token_delay_seconds),
+        retriever=LoadRetriever(),
+        sessions=sessions,
+        models=catalog,
+        contextualizer=RecentHistoryContextualizer(max_history_messages=4),
+        prompt_builder=GroundedPromptBuilder(),
+        max_session_messages=12,
+        retrieval_limit=3,
+        score_threshold=0.35,
+        max_message_length=4000,
+    )
+    return ApplicationContainer(
+        chat=chat,
+        models=catalog,
+        end_session=EndSessionService(sessions),
+        readiness=ReadinessService(AlwaysReady()),
+        stream_gate=ConcurrentStreamGate(max_concurrent_streams),
+        stream_timeout_seconds=stream_timeout_seconds,
     )
 
 

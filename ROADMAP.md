@@ -163,6 +163,46 @@ flowchart LR
 - [x] Atualizar README, ADRs e testes automatizados.
 - [x] Validar 100% de cobertura, Ruff e análise de tipos.
 
+## Escalabilidade (evolução)
+
+Hoje cada conversa envia `session_id` em `POST /v1/chat/stream`. A API abre um
+canal SSE por requisição e devolve tokens à medida que o modelo os gera. O
+Uvicorn é assíncrono: várias conexões convivem no mesmo event loop, cada uma
+com o próprio histórico, recuperação no Qdrant e chamada ao gateway.
+
+Não há fila global de respostas. O que serializa o tráfego, na prática, são os
+limites da instância (Render Free, `WEB_CONCURRENCY=1`), da cota compartilhada
+do LLM/embeddings e do Qdrant. Sessões ficam em memória do processo; várias
+réplicas quebrariam o contexto entre turnos até existir um repositório
+compartilhado.
+
+O teste de carga abaixo mede esse comportamento **antes** de autenticar
+usuários de verdade. Se os números não forem aceitáveis, a correção segue a
+ordem: identificar o gargalo, aplicar backpressure e só então escalar
+infraestrutura.
+
+### Tarefa 11 — `test: add load test and scale-out plan`
+
+- [x] Documentar o modelo atual: uma conexão SSE por pergunta, multiplexação
+      assíncrona, sessão em memória e dependência do gateway.
+- [x] Definir o cenário-alvo: usuários simultâneos, perguntas por minuto, tempo
+      até o primeiro token, taxa de erro e percentual de streams concluídos.
+- [x] Criar um teste de carga local contra a API com LLM e retriever fake,
+      para medir a aplicação sem gastar a cota.
+- [x] Criar um perfil controlado contra o ambiente publicado, com teto de
+      cinco requisições reais.
+- [x] Registrar p50/p95 de primeiro token, duração do stream e 4xx/5xx.
+- [x] Diagnosticar o gargalo: a API local passou; em produção o limite é o
+      gateway e a sessão em memória, não o event loop.
+- [x] Mitigação imediata: `MAX_CONCURRENT_STREAMS` com HTTP 429 e
+      `STREAM_TIMEOUT_SECONDS` antes de o SSE ficar aberto indefinidamente.
+- [ ] Mitigação de sessão: persistir histórico em Redis via
+      `SessionRepositoryPort`, para várias réplicas compartilharem o contexto.
+- [ ] Mitigação de capacidade: aumentar `WEB_CONCURRENCY` ou o plano do Render
+      somente depois de o histórico deixar a memória do processo.
+- [ ] Mitigação de custo: cache de embeddings de consultas repetidas.
+- [x] Publicar o relatório no README e no ADR 0005.
+
 ## Critérios de aceite
 
 - Tokens são entregues antes de a resposta terminar.
