@@ -12,6 +12,8 @@ from chatbot.application.models import (
     ChatEventType,
     ChatRequest,
     IngestionResult,
+    PromptMessage,
+    PromptRole,
     SourcePage,
 )
 
@@ -24,6 +26,8 @@ __all__ = [
     "EmptyGenerationError",
     "IngestionResult",
     "MessageTooLongError",
+    "PromptMessage",
+    "PromptRole",
     "SourcePage",
     "UnsupportedModelError",
 ]

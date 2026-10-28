@@ -1,4 +1,4 @@
-"""Títulos legíveis para os documentos fixos da base de conhecimento."""
+"""Metadados canônicos da base documental conhecida."""
 
 from pathlib import Path
 
@@ -22,8 +22,8 @@ _KNOWN_TITLES = (
 )
 
 
-def document_title(source: str) -> str:
-    """Resolve títulos canônicos e oferece fallback para novos documentos."""
+def resolve_document_title(source: str) -> str:
+    """Resolve o título uma vez, na fronteira de entrada dos documentos."""
     normalized = source.casefold()
     for marker, title in _KNOWN_TITLES:
         if marker in normalized:

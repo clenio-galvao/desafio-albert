@@ -3,7 +3,7 @@
 import asyncio
 import logging
 from collections.abc import AsyncIterator
-from typing import Annotated
+from typing import Annotated, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import StreamingResponse
@@ -12,20 +12,20 @@ from chatbot.adapters.inbound.api.schemas import ChatBody, HealthResponse, Model
 from chatbot.adapters.inbound.api.sse import encode_chat_event, encode_error
 from chatbot.application.exceptions import ApplicationError, ChatValidationError
 from chatbot.application.models import ChatRequest
-from chatbot.bootstrap import ApplicationContainer
+from chatbot.application.ports import ApplicationServices
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-def get_container(request: Request) -> ApplicationContainer:
+def get_container(request: Request) -> ApplicationServices:
     container = getattr(request.app.state, "container", None)
-    if not isinstance(container, ApplicationContainer):
+    if container is None:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE)
-    return container
+    return cast(ApplicationServices, container)
 
 
-Container = Annotated[ApplicationContainer, Depends(get_container)]
+Container = Annotated[ApplicationServices, Depends(get_container)]
 
 
 @router.get("/health/live", response_model=HealthResponse, tags=["health"])

@@ -14,6 +14,18 @@ class ChatEventType(StrEnum):
     DONE = "done"
 
 
+class PromptRole(StrEnum):
+    SYSTEM = "system"
+    USER = "user"
+    ASSISTANT = "assistant"
+
+
+@dataclass(frozen=True, slots=True)
+class PromptMessage:
+    role: PromptRole
+    content: str
+
+
 @dataclass(frozen=True, slots=True)
 class ChatRequest:
     session_id: str
@@ -31,6 +43,7 @@ class ChatEvent:
 @dataclass(frozen=True, slots=True)
 class SourcePage:
     source: str
+    title: str
     page: int
     text: str
 

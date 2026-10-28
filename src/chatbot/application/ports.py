@@ -3,8 +3,14 @@
 from collections.abc import AsyncGenerator, AsyncIterator, Sequence
 from typing import Protocol
 
-from chatbot.application.models import ChatEvent, ChatRequest, IngestionResult, SourcePage
-from chatbot.domain.models import ChatSession, DocumentChunk, Message, RetrievedChunk
+from chatbot.application.models import (
+    ChatEvent,
+    ChatRequest,
+    IngestionResult,
+    PromptMessage,
+    SourcePage,
+)
+from chatbot.domain.models import ChatSession, DocumentChunk, RetrievedChunk
 
 
 class LLMPort(Protocol):
@@ -14,8 +20,7 @@ class LLMPort(Protocol):
         self,
         *,
         model: str,
-        messages: Sequence[Message],
-        context: Sequence[DocumentChunk],
+        messages: Sequence[PromptMessage],
     ) -> AsyncIterator[str]: ...
 
 
@@ -23,6 +28,14 @@ class EmbeddingPort(Protocol):
     """Geração vetorial em lote."""
 
     async def embed(self, texts: Sequence[str]) -> list[list[float]]: ...
+
+
+class TokenEncodingPort(Protocol):
+    """Codificação de texto injetada no chunking."""
+
+    def encode(self, text: str) -> list[int]: ...
+
+    def decode(self, tokens: Sequence[int]) -> str: ...
 
 
 class RetrieverPort(Protocol):
@@ -37,8 +50,26 @@ class RetrieverPort(Protocol):
     ) -> Sequence[RetrievedChunk]: ...
 
 
-class VectorStorePort(RetrieverPort, Protocol):
-    """Persistência usada pela ingestão e pela recuperação."""
+class VectorIndexPort(Protocol):
+    """Índice vetorial sem decisões de embedding ou expansão."""
+
+    async def query(
+        self,
+        vector: Sequence[float],
+        *,
+        limit: int,
+        score_threshold: float,
+    ) -> Sequence[RetrievedChunk]: ...
+
+    async def pages_after(
+        self,
+        chunk: DocumentChunk,
+        count: int,
+    ) -> Sequence[DocumentChunk]: ...
+
+
+class VectorStorePort(Protocol):
+    """Persistência vetorial usada pela ingestão."""
 
     async def ensure_indexes(self) -> None: ...
 
@@ -109,3 +140,19 @@ class AsyncClosePort(Protocol):
     """Recurso assíncrono encerrado no ciclo de vida da aplicação."""
 
     async def close(self) -> None: ...
+
+
+class ApplicationServices(Protocol):
+    """Fachada de portas de entrada disponibilizada aos adapters."""
+
+    @property
+    def chat(self) -> AnswerQuestion: ...
+
+    @property
+    def models(self) -> ListModels: ...
+
+    @property
+    def end_session(self) -> EndSession: ...
+
+    @property
+    def readiness(self) -> CheckReadiness: ...

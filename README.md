@@ -30,7 +30,7 @@ Drive:
 Os PDFs não são publicados no GitHub. A ingestão extrai o texto de cada página,
 normaliza ruídos de layout, divide textos longos em chunks com sobreposição,
 gera IDs e hashes determinísticos, cria embeddings e persiste texto, arquivo,
-página e hash no Qdrant. A reingestão consulta os hashes existentes e não
+título, página e hash no Qdrant. A reingestão consulta os hashes existentes e não
 consome embeddings novamente quando o conteúdo não mudou.
 
 ## Arquitetura
@@ -43,16 +43,19 @@ flowchart LR
     Chat --> Retriever[RetrieverPort]
     Chat --> LLM[LLMPort]
     Session --> Memory[Memória TTL]
-    Retriever --> Qdrant[Qdrant Cloud]
+    Retriever --> Embedding[EmbeddingPort]
+    Retriever --> Index[VectorIndexPort]
+    Index --> Qdrant[Qdrant Cloud]
     LLM --> Gateway[API OpenAI-compatible]
     PDFs[PDFs privados] --> Ingest[IngestionService]
-    Ingest --> Embedding[EmbeddingPort]
+    Ingest --> Embedding
     Embedding --> Gateway
     Ingest --> Qdrant
 ```
 
 - `domain`: entidades e regras sem dependências de frameworks;
-- `application`: casos de uso, portas, contextualização e avaliação;
+- `application`: casos de uso, portas, contextualização, recuperação,
+  construção do prompt fundamentado e avaliação;
 - `adapters/inbound`: API FastAPI, SSE e página de demonstração;
 - `adapters/outbound`: gateway OpenAI-compatible, Qdrant, PDF e sessões;
 - `bootstrap.py`: composição explícita das dependências e exposição exclusiva
@@ -65,12 +68,13 @@ As decisões e alternativas estão registradas em [docs/adr](docs/adr/README.md)
 1. A pergunta é validada e associada a uma sessão temporária.
 2. Perguntas independentes são pesquisadas sem contaminar a consulta com o
    histórico; referências como “isso” ou “ela” usam os turnos recentes.
-3. `cohere/embed-v4.0` gera o vetor da consulta.
-4. O Qdrant recupera os três trechos mais próximos com score mínimo de `0.35`.
+3. O recuperador da aplicação solicita a `cohere/embed-v4.0` o vetor da consulta.
+4. O adapter Qdrant busca os três vetores mais próximos com score mínimo de
+   `0.35`, sem conter regras de recuperação.
 5. Uma página seguinte é incluída para preservar listas e explicações
    interrompidas por quebra de página.
-6. O modelo recebe histórico limitado, pergunta e fontes delimitadas como
-   conteúdo não confiável.
+6. A aplicação monta as mensagens com histórico limitado, pergunta, fontes
+   delimitadas como conteúdo não confiável e títulos persistidos na ingestão.
 7. A resposta é transmitida por SSE e deve citar título e página.
 
 O prompt proíbe conhecimento externo, diagnósticos e instruções encontradas
@@ -122,6 +126,8 @@ python scripts/ingest.py
 O primeiro comando salva os PDFs em `data/documents`, ignorado pelo Git. O
 segundo imprime `documents`, `chunks`, `embedded_chunks` e `skipped_chunks`.
 Revise o `.env` antes da ingestão, pois novos chunks consomem a cota do gateway.
+Coleções criadas antes da inclusão do metadado `title` podem ser atualizadas,
+sem recalcular embeddings, com `python scripts/migrate_qdrant_titles.py`.
 
 ## Execução e teste manual
 

@@ -7,6 +7,7 @@ from pathlib import Path
 
 from pypdf import PdfReader
 
+from chatbot.adapters.outbound.documents.catalog import resolve_document_title
 from chatbot.application.models import SourcePage
 
 _WHITESPACE = re.compile(r"[ \t]+")
@@ -43,10 +44,18 @@ class PdfDirectorySource:
         pages: list[SourcePage] = []
         for path in pdf_paths:
             reader = PdfReader(path)
+            title = resolve_document_title(path.name)
             for page_number, page in enumerate(reader.pages, start=1):
                 text = normalize_page_text(page.extract_text() or "")
                 if text:
-                    pages.append(SourcePage(source=path.name, page=page_number, text=text))
+                    pages.append(
+                        SourcePage(
+                            source=path.name,
+                            title=title,
+                            page=page_number,
+                            text=text,
+                        )
+                    )
 
         if not pages:
             raise ValueError("os PDFs não possuem texto extraível")

@@ -5,7 +5,6 @@ from typing import cast
 
 from qdrant_client import AsyncQdrantClient, models
 
-from chatbot.application.ports import EmbeddingPort
 from chatbot.domain.models import DocumentChunk, RetrievedChunk
 
 
@@ -18,14 +17,8 @@ class QdrantVectorStore:
         url: str,
         api_key: str,
         collection_name: str,
-        embedding: EmbeddingPort,
-        following_pages: int = 0,
     ) -> None:
-        if following_pages < 0:
-            raise ValueError("following_pages não pode ser negativo")
         self._collection_name = collection_name
-        self._embedding = embedding
-        self._following_pages = following_pages
         self._client = AsyncQdrantClient(
             url=url,
             api_key=api_key,
@@ -102,6 +95,7 @@ class QdrantVectorStore:
                 payload={
                     "text": chunk.text,
                     "source": chunk.source,
+                    "title": chunk.title,
                     "page": chunk.page,
                     "content_hash": chunk.content_hash,
                 },
@@ -114,9 +108,9 @@ class QdrantVectorStore:
             wait=True,
         )
 
-    async def search(
+    async def query(
         self,
-        query: str,
+        vector: Sequence[float],
         *,
         limit: int,
         score_threshold: float,
@@ -124,35 +118,21 @@ class QdrantVectorStore:
         if not await self._client.collection_exists(self._collection_name):
             return ()
 
-        vectors = await self._embedding.embed([query])
-        if len(vectors) != 1:
-            raise RuntimeError("o provedor deve retornar exatamente um embedding para a consulta")
         response = await self._client.query_points(
             collection_name=self._collection_name,
-            query=vectors[0],
+            query=list(vector),
             limit=limit,
             score_threshold=score_threshold,
             with_payload=True,
         )
 
         results: list[RetrievedChunk] = []
-        seen_ids: set[str] = set()
         for point in response.points:
             identifier = str(point.id)
-            if identifier in seen_ids:
-                continue
             payload = point.payload or {}
             chunk = self._payload_to_chunk(identifier, payload)
             score = max(0.0, min(1.0, float(point.score)))
             results.append(RetrievedChunk(chunk=chunk, score=score))
-            seen_ids.add(chunk.id)
-            results.extend(
-                await self._following_chunks(
-                    chunk=chunk,
-                    score=score,
-                    seen_ids=seen_ids,
-                )
-            )
         return tuple(results)
 
     async def close(self) -> None:
@@ -161,15 +141,13 @@ class QdrantVectorStore:
     async def ready(self) -> bool:
         return await self._client.collection_exists(self._collection_name)
 
-    async def _following_chunks(
+    async def pages_after(
         self,
-        *,
         chunk: DocumentChunk,
-        score: float,
-        seen_ids: set[str],
-    ) -> list[RetrievedChunk]:
-        neighbors: list[RetrievedChunk] = []
-        for offset in range(1, self._following_pages + 1):
+        count: int,
+    ) -> Sequence[DocumentChunk]:
+        neighbors: list[DocumentChunk] = []
+        for offset in range(1, count + 1):
             records, _ = await self._client.scroll(
                 collection_name=self._collection_name,
                 scroll_filter=models.Filter(
@@ -190,12 +168,9 @@ class QdrantVectorStore:
             )
             for record in records:
                 identifier = str(record.id)
-                if identifier in seen_ids:
-                    continue
                 neighbor = self._payload_to_chunk(identifier, record.payload or {})
-                neighbors.append(RetrievedChunk(chunk=neighbor, score=score))
-                seen_ids.add(identifier)
-        return neighbors
+                neighbors.append(neighbor)
+        return tuple(neighbors)
 
     @staticmethod
     def _payload_to_chunk(identifier: str, payload: dict[str, object]) -> DocumentChunk:
@@ -203,6 +178,7 @@ class QdrantVectorStore:
             id=identifier,
             text=str(payload["text"]),
             source=str(payload["source"]),
+            title=str(payload["title"]),
             page=int(cast(int | str, payload["page"])),
             content_hash=str(payload["content_hash"]),
         )

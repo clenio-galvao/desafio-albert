@@ -7,24 +7,20 @@ from qdrant_client import models
 from chatbot.adapters.outbound.qdrant import QdrantVectorStore
 from chatbot.domain.models import DocumentChunk
 
-from ..fakes import FakeEmbedding
-
 
 def make_chunk(identifier: str = "00000000-0000-0000-0000-000000000001") -> DocumentChunk:
     return DocumentChunk(
         id=identifier,
         text="conteúdo",
         source="apostila.pdf",
+        title="Apostila",
         page=1,
         content_hash=f"hash-{identifier}",
     )
 
 
-def make_store(
-    following_pages: int = 0,
-) -> tuple[QdrantVectorStore, AsyncMock, FakeEmbedding]:
+def make_store() -> tuple[QdrantVectorStore, AsyncMock]:
     client = AsyncMock()
-    embedding = FakeEmbedding()
     with patch(
         "chatbot.adapters.outbound.qdrant.AsyncQdrantClient",
         return_value=client,
@@ -33,28 +29,12 @@ def make_store(
             url="https://qdrant.test",
             api_key="secret",
             collection_name="knowledge-v1",
-            embedding=embedding,
-            following_pages=following_pages,
         )
-    return store, client, embedding
-
-
-def test_qdrant_store_rejects_negative_following_pages() -> None:
-    with (
-        patch("chatbot.adapters.outbound.qdrant.AsyncQdrantClient"),
-        pytest.raises(ValueError, match="following_pages"),
-    ):
-        QdrantVectorStore(
-            url="https://qdrant.test",
-            api_key="secret",
-            collection_name="knowledge-v1",
-            embedding=FakeEmbedding(),
-            following_pages=-1,
-        )
+    return store, client
 
 
 async def test_existing_hashes_short_circuits_empty_or_missing_collection() -> None:
-    store, client, _ = make_store()
+    store, client = make_store()
 
     assert await store.existing_hashes([]) == set()
     client.collection_exists.assert_not_awaited()
@@ -65,7 +45,7 @@ async def test_existing_hashes_short_circuits_empty_or_missing_collection() -> N
 
 
 async def test_ensure_indexes_skips_missing_collection_and_creates_missing_fields() -> None:
-    store, client, _ = make_store()
+    store, client = make_store()
     client.collection_exists.return_value = False
     await store.ensure_indexes()
     client.get_collection.assert_not_awaited()
@@ -84,7 +64,7 @@ async def test_ensure_indexes_skips_missing_collection_and_creates_missing_field
 
 
 async def test_existing_hashes_reads_payload_in_batches() -> None:
-    store, client, _ = make_store()
+    store, client = make_store()
     client.collection_exists.return_value = True
     client.scroll.side_effect = [
         ([SimpleNamespace(payload={"content_hash": "hash-0"})], None),
@@ -104,7 +84,7 @@ async def test_existing_hashes_reads_payload_in_batches() -> None:
 
 
 async def test_upsert_creates_collection_and_writes_payload() -> None:
-    store, client, _ = make_store()
+    store, client = make_store()
     client.collection_exists.side_effect = [False, True]
     client.get_collection.return_value = SimpleNamespace(payload_schema={})
     chunk = make_chunk()
@@ -117,10 +97,11 @@ async def test_upsert_creates_collection_and_writes_payload() -> None:
     assert upsert_call["collection_name"] == "knowledge-v1"
     assert upsert_call["wait"] is True
     assert upsert_call["points"][0].payload["source"] == "apostila.pdf"
+    assert upsert_call["points"][0].payload["title"] == "Apostila"
 
 
 async def test_upsert_validates_input_shapes_and_empty_input() -> None:
-    store, client, _ = make_store()
+    store, client = make_store()
     chunk = make_chunk()
 
     with pytest.raises(ValueError, match="mesmo tamanho"):
@@ -138,7 +119,7 @@ async def test_upsert_validates_input_shapes_and_empty_input() -> None:
 
 
 async def test_upsert_accepts_existing_collection_with_matching_dimension() -> None:
-    store, client, _ = make_store()
+    store, client = make_store()
     client.collection_exists.return_value = True
     client.get_collection.return_value = SimpleNamespace(
         payload_schema={
@@ -167,7 +148,7 @@ async def test_upsert_accepts_existing_collection_with_matching_dimension() -> N
     ],
 )
 async def test_upsert_rejects_incompatible_existing_collection(vectors: object) -> None:
-    store, client, _ = make_store()
+    store, client = make_store()
     client.collection_exists.return_value = True
     client.get_collection.return_value = SimpleNamespace(
         payload_schema={
@@ -183,15 +164,14 @@ async def test_upsert_rejects_incompatible_existing_collection(vectors: object) 
 
 
 async def test_search_short_circuits_missing_collection() -> None:
-    store, client, embedding = make_store()
+    store, client = make_store()
     client.collection_exists.return_value = False
 
-    assert await store.search("pergunta", limit=3, score_threshold=0.7) == ()
-    assert embedding.inputs == []
+    assert await store.query([0.1, 0.2], limit=3, score_threshold=0.7) == ()
 
 
-async def test_search_embeds_query_and_maps_results() -> None:
-    store, client, embedding = make_store()
+async def test_query_maps_vector_results() -> None:
+    store, client = make_store()
     client.collection_exists.return_value = True
     client.query_points.return_value = SimpleNamespace(
         points=[
@@ -201,6 +181,7 @@ async def test_search_embeds_query_and_maps_results() -> None:
                 payload={
                     "text": "conteúdo",
                     "source": "apostila.pdf",
+                    "title": "Apostila",
                     "page": 4,
                     "content_hash": "hash",
                 },
@@ -208,45 +189,22 @@ async def test_search_embeds_query_and_maps_results() -> None:
         ]
     )
 
-    results = await store.search("pergunta", limit=3, score_threshold=0.7)
+    results = await store.query([0.1, 0.2], limit=3, score_threshold=0.7)
 
-    assert embedding.inputs == ["pergunta"]
     assert results[0].score == 1
     assert results[0].chunk.page == 4
+    assert results[0].chunk.title == "Apostila"
+    assert client.query_points.await_args.kwargs["query"] == [0.1, 0.2]
 
 
-async def test_search_adds_following_page_and_deduplicates_records() -> None:
-    store, client, _ = make_store(following_pages=2)
-    client.collection_exists.return_value = True
-    client.query_points.return_value = SimpleNamespace(
-        points=[
-            SimpleNamespace(
-                id="00000000-0000-0000-0000-000000000001",
-                score=0.8,
-                payload={
-                    "text": "início da lista",
-                    "source": "apostila.pdf",
-                    "page": 4,
-                    "content_hash": "hash-4",
-                },
-            ),
-            SimpleNamespace(
-                id="00000000-0000-0000-0000-000000000002",
-                score=0.75,
-                payload={
-                    "text": "continuação da lista",
-                    "source": "apostila.pdf",
-                    "page": 5,
-                    "content_hash": "hash-5",
-                },
-            ),
-        ]
-    )
+async def test_pages_after_reads_consecutive_document_pages() -> None:
+    store, client = make_store()
     following_record = SimpleNamespace(
         id="00000000-0000-0000-0000-000000000002",
         payload={
             "text": "continuação da lista",
             "source": "apostila.pdf",
+            "title": "Apostila",
             "page": 5,
             "content_hash": "hash-5",
         },
@@ -256,28 +214,14 @@ async def test_search_adds_following_page_and_deduplicates_records() -> None:
         ([following_record], None),
     ]
 
-    results = await store.search("pergunta", limit=3, score_threshold=0.35)
+    results = await store.pages_after(make_chunk(), 2)
 
-    assert [item.chunk.page for item in results] == [4, 5]
-    assert results[1].score == 0.8
+    assert [chunk.page for chunk in results] == [5, 5]
     assert client.scroll.await_count == 2
 
 
-async def test_search_rejects_invalid_query_embedding_count() -> None:
-    store, client, embedding = make_store()
-    client.collection_exists.return_value = True
-
-    async def broken_embed(texts: object) -> list[list[float]]:
-        return []
-
-    embedding.embed = broken_embed  # type: ignore[method-assign]
-
-    with pytest.raises(RuntimeError, match="exatamente um"):
-        await store.search("pergunta", limit=3, score_threshold=0.7)
-
-
 async def test_close_releases_qdrant_client() -> None:
-    store, client, _ = make_store()
+    store, client = make_store()
 
     await store.close()
 
@@ -285,7 +229,7 @@ async def test_close_releases_qdrant_client() -> None:
 
 
 async def test_ready_checks_collection() -> None:
-    store, client, _ = make_store()
+    store, client = make_store()
     client.collection_exists.return_value = True
 
     assert await store.ready() is True

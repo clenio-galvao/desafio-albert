@@ -37,6 +37,7 @@ def test_chunker_is_deterministic_and_preserves_metadata() -> None:
     chunker = make_chunker(chunk_size=4, overlap=1)
     page = SourcePage(
         source="apostila.pdf",
+        title="Apostila",
         page=2,
         text="saúde mental depende também de vínculos e cuidado contínuo",
     )
@@ -53,13 +54,17 @@ def test_chunker_is_deterministic_and_preserves_metadata() -> None:
 def test_chunker_skips_empty_pages() -> None:
     chunker = make_chunker(chunk_size=10, overlap=0)
 
-    assert chunker.split([SourcePage(source="vazio.pdf", page=1, text="")]) == ()
+    assert chunker.split(
+        [SourcePage(source="vazio.pdf", title="Vazio", page=1, text="")]
+    ) == ()
 
 
 def test_chunker_skips_tokens_that_decode_to_whitespace() -> None:
     chunker = TokenChunker(chunk_size=10, overlap=0, encoding=EmptyDecoding())
 
-    assert chunker.split([SourcePage(source="vazio.pdf", page=1, text="conteúdo")]) == ()
+    assert chunker.split(
+        [SourcePage(source="vazio.pdf", title="Vazio", page=1, text="conteúdo")]
+    ) == ()
 
 
 @pytest.mark.parametrize(
@@ -72,13 +77,17 @@ def test_chunker_validates_configuration(
     message: str,
 ) -> None:
     with pytest.raises(ValueError, match=message):
-        TokenChunker(chunk_size=chunk_size, overlap=overlap)
+        TokenChunker(
+            chunk_size=chunk_size,
+            overlap=overlap,
+            encoding=CharacterEncoding(),
+        )
 
 
 async def test_ingestion_embeds_and_stores_only_new_chunks() -> None:
     pages = [
-        SourcePage(source="a.pdf", page=1, text="primeiro texto"),
-        SourcePage(source="b.pdf", page=1, text="segundo texto"),
+        SourcePage(source="a.pdf", title="A", page=1, text="primeiro texto"),
+        SourcePage(source="b.pdf", title="B", page=1, text="segundo texto"),
     ]
     source = FakeDocumentSource(pages)
     chunker = make_chunker(chunk_size=100, overlap=10)
@@ -105,7 +114,7 @@ async def test_ingestion_embeds_and_stores_only_new_chunks() -> None:
 
 
 async def test_ingestion_does_not_call_embedding_when_everything_exists() -> None:
-    pages = [SourcePage(source="a.pdf", page=1, text="texto")]
+    pages = [SourcePage(source="a.pdf", title="A", page=1, text="texto")]
     chunker = make_chunker(chunk_size=100, overlap=0)
     store = FakeVectorStore()
     chunk = chunker.split(pages)[0]
@@ -132,7 +141,9 @@ class BrokenEmbedding:
 
 async def test_ingestion_rejects_incomplete_embedding_response() -> None:
     service = IngestionService(
-        source=FakeDocumentSource([SourcePage(source="a.pdf", page=1, text="texto")]),
+        source=FakeDocumentSource(
+            [SourcePage(source="a.pdf", title="A", page=1, text="texto")]
+        ),
         chunker=make_chunker(chunk_size=100, overlap=0),
         embedding=BrokenEmbedding(),
         vector_store=FakeVectorStore(),

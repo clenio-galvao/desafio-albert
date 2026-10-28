@@ -2,27 +2,24 @@
 
 from collections.abc import AsyncIterator, Sequence
 
-from chatbot.application.models import SourcePage
-from chatbot.domain.models import ChatSession, DocumentChunk, Message, RetrievedChunk
+from chatbot.application.models import PromptMessage, SourcePage
+from chatbot.domain.models import ChatSession, DocumentChunk, RetrievedChunk
 
 
 class FakeLLM:
     def __init__(self, tokens: Sequence[str] = ("resposta",)) -> None:
         self.tokens = tuple(tokens)
         self.models: list[str] = []
-        self.messages: list[tuple[Message, ...]] = []
-        self.contexts: list[tuple[DocumentChunk, ...]] = []
+        self.messages: list[tuple[PromptMessage, ...]] = []
 
     async def stream(
         self,
         *,
         model: str,
-        messages: Sequence[Message],
-        context: Sequence[DocumentChunk],
+        messages: Sequence[PromptMessage],
     ) -> AsyncIterator[str]:
         self.models.append(model)
         self.messages.append(tuple(messages))
-        self.contexts.append(tuple(context))
         for token in self.tokens:
             yield token
 

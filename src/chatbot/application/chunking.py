@@ -2,19 +2,11 @@
 
 from collections.abc import Sequence
 from hashlib import sha256
-from typing import Protocol
 from uuid import NAMESPACE_URL, uuid5
 
-import tiktoken
-
 from chatbot.application.models import SourcePage
+from chatbot.application.ports import TokenEncodingPort
 from chatbot.domain.models import DocumentChunk
-
-
-class TokenEncoding(Protocol):
-    def encode(self, text: str) -> list[int]: ...
-
-    def decode(self, tokens: Sequence[int]) -> str: ...
 
 
 class TokenChunker:
@@ -25,8 +17,7 @@ class TokenChunker:
         *,
         chunk_size: int,
         overlap: int,
-        encoding_name: str = "cl100k_base",
-        encoding: TokenEncoding | None = None,
+        encoding: TokenEncodingPort,
     ) -> None:
         if chunk_size < 1:
             raise ValueError("chunk_size deve ser maior que zero")
@@ -34,7 +25,7 @@ class TokenChunker:
             raise ValueError("overlap deve estar entre zero e chunk_size - 1")
         self._chunk_size = chunk_size
         self._overlap = overlap
-        self._encoding = encoding or tiktoken.get_encoding(encoding_name)
+        self._encoding = encoding
 
     def split(self, pages: Sequence[SourcePage]) -> tuple[DocumentChunk, ...]:
         chunks: list[DocumentChunk] = []
@@ -54,6 +45,7 @@ class TokenChunker:
                         id=str(identifier),
                         text=text,
                         source=page.source,
+                        title=page.title,
                         page=page.page,
                         content_hash=content_hash,
                     )

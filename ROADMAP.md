@@ -13,7 +13,9 @@ flowchart LR
     Chat --> RetrieverPort[RetrieverPort]
     Chat --> LlmPort[LLMPort]
     SessionPort --> Memory[Memória TTL]
-    RetrieverPort --> Qdrant[Qdrant Cloud]
+    RetrieverPort --> EmbedPort[EmbeddingPort]
+    RetrieverPort --> IndexPort[VectorIndexPort]
+    IndexPort --> Qdrant[Qdrant Cloud]
     LlmPort --> Gateway[API OpenAI-compatible]
     Ingest[UseCase IngestDocuments] --> EmbedPort[EmbeddingPort]
     EmbedPort --> Gateway
@@ -149,6 +151,17 @@ flowchart LR
 - [x] Executar smoke test completo.
 - [x] Validar e documentar o cold start.
 - [x] Confirmar CI, cobertura e histórico sem segredos.
+
+### Tarefa 10 — `refactor: isolate rag policies from infrastructure`
+
+- [x] Desacoplar o router HTTP do composition root.
+- [x] Centralizar a composição da API e da ingestão no `bootstrap.py`.
+- [x] Mover grounding e montagem do prompt para a aplicação.
+- [x] Separar recuperação semântica do adapter Qdrant.
+- [x] Injetar a codificação de tokens por uma porta.
+- [x] Persistir títulos como metadados e migrar os 257 chunks existentes.
+- [x] Atualizar README, ADRs e testes automatizados.
+- [x] Validar 100% de cobertura, Ruff e análise de tipos.
 
 ## Critérios de aceite
 

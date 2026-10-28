@@ -6,6 +6,7 @@ from chatbot.application.contextualization import RecentHistoryContextualizer
 from chatbot.application.exceptions import EmptyGenerationError, MessageTooLongError
 from chatbot.application.models import ChatEvent, ChatEventType, ChatRequest
 from chatbot.application.ports import LLMPort, RetrieverPort, SessionRepositoryPort
+from chatbot.application.prompting import GroundedPromptBuilder
 from chatbot.application.use_cases.list_models import ModelCatalog
 from chatbot.domain.models import ChatSession, Message, MessageRole
 
@@ -25,6 +26,7 @@ class GroundedChatService:
         sessions: SessionRepositoryPort,
         models: ModelCatalog,
         contextualizer: RecentHistoryContextualizer,
+        prompt_builder: GroundedPromptBuilder,
         max_session_messages: int = 12,
         retrieval_limit: int = 5,
         score_threshold: float = 0.7,
@@ -43,6 +45,7 @@ class GroundedChatService:
         self._sessions = sessions
         self._models = models
         self._contextualizer = contextualizer
+        self._prompt_builder = prompt_builder
         self._max_session_messages = max_session_messages
         self._retrieval_limit = retrieval_limit
         self._score_threshold = score_threshold
@@ -87,10 +90,13 @@ class GroundedChatService:
             return
 
         response_parts: list[str] = []
+        prompt = self._prompt_builder.build(
+            session.recent(self._max_session_messages),
+            [item.chunk for item in retrieved],
+        )
         async for token in self._llm.stream(
             model=request.model,
-            messages=session.recent(self._max_session_messages),
-            context=[item.chunk for item in retrieved],
+            messages=prompt,
         ):
             if token:
                 response_parts.append(token)

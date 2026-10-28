@@ -8,6 +8,7 @@ from chatbot.application import (
     UnsupportedModelError,
 )
 from chatbot.application.contextualization import RecentHistoryContextualizer
+from chatbot.application.prompting import GroundedPromptBuilder
 from chatbot.application.use_cases import GroundedChatService, ModelCatalog
 from chatbot.application.use_cases.answer_question import INSUFFICIENT_EVIDENCE_MESSAGE
 from chatbot.domain import DocumentChunk, Message, MessageRole, RetrievedChunk
@@ -21,6 +22,7 @@ def make_retrieved_chunk(score: float = 0.9) -> RetrievedChunk:
             id="chunk-1",
             text="Atividade física pode apoiar a saúde mental.",
             source="apostila.pdf",
+            title="Apostila",
             page=7,
             content_hash="hash",
         ),
@@ -41,6 +43,7 @@ def make_service(
         "sessions": sessions or FakeSessionRepository(),
         "models": ModelCatalog(["model-a", "model-b"]),
         "contextualizer": RecentHistoryContextualizer(max_history_messages=2),
+        "prompt_builder": GroundedPromptBuilder(),
         "max_session_messages": 4,
         "retrieval_limit": 3,
         "score_threshold": 0.7,
@@ -115,7 +118,7 @@ async def test_grounded_chat_streams_answer_with_citations_and_saves_history() -
     assert events[0].citations[0].page == 7
     assert "".join(event.content or "" for event in events) == "resposta"
     assert llm.models == ["model-a"]
-    assert llm.contexts[0][0].source == "apostila.pdf"
+    assert '"source": "apostila.pdf"' in llm.messages[0][-1].content
     assert [message.content for message in sessions.sessions["session"].messages] == [
         "Como cuidar?",
         "resposta",

@@ -24,6 +24,7 @@ def make_chunk(**changes: object) -> DocumentChunk:
         "id": "chunk-1",
         "text": "Trecho da apostila",
         "source": "apostila.pdf",
+        "title": "Apostila",
         "page": 3,
         "content_hash": "hash-1",
     }
@@ -44,18 +45,29 @@ def test_message_rejects_empty_content() -> None:
 
 
 def test_citation_normalizes_fields_and_validates_page() -> None:
-    citation = Citation(source=" apostila.pdf ", page=2, chunk_id=" trecho-1 ")
+    citation = Citation(
+        source=" apostila.pdf ",
+        title=" Apostila ",
+        page=2,
+        chunk_id=" trecho-1 ",
+    )
 
     assert citation.source == "apostila.pdf"
+    assert citation.title == "Apostila"
     assert citation.chunk_id == "trecho-1"
 
     with pytest.raises(InvalidPageError):
-        Citation(source="apostila.pdf", page=0, chunk_id="trecho-1")
+        Citation(source="apostila.pdf", title="Apostila", page=0, chunk_id="trecho-1")
 
 
-@pytest.mark.parametrize("field", ["source", "chunk_id"])
+@pytest.mark.parametrize("field", ["source", "title", "chunk_id"])
 def test_citation_rejects_empty_required_fields(field: str) -> None:
-    values = {"source": "apostila.pdf", "page": 1, "chunk_id": "trecho-1"}
+    values = {
+        "source": "apostila.pdf",
+        "title": "Apostila",
+        "page": 1,
+        "chunk_id": "trecho-1",
+    }
     values[field] = " "
 
     with pytest.raises(EmptyContentError, match=field):
@@ -63,14 +75,25 @@ def test_citation_rejects_empty_required_fields(field: str) -> None:
 
 
 def test_document_chunk_normalizes_fields_and_builds_citation() -> None:
-    chunk = make_chunk(id=" chunk-1 ", text=" texto ", source=" fonte ", content_hash=" hash ")
+    chunk = make_chunk(
+        id=" chunk-1 ",
+        text=" texto ",
+        source=" fonte ",
+        title=" Título ",
+        content_hash=" hash ",
+    )
 
     assert chunk.id == "chunk-1"
     assert chunk.text == "texto"
-    assert chunk.citation() == Citation(source="fonte", page=3, chunk_id="chunk-1")
+    assert chunk.citation() == Citation(
+        source="fonte",
+        title="Título",
+        page=3,
+        chunk_id="chunk-1",
+    )
 
 
-@pytest.mark.parametrize("field", ["id", "text", "source", "content_hash"])
+@pytest.mark.parametrize("field", ["id", "text", "source", "title", "content_hash"])
 def test_document_chunk_rejects_empty_required_fields(field: str) -> None:
     with pytest.raises(EmptyContentError, match=field):
         make_chunk(**{field: " "})

@@ -1,5 +1,6 @@
 import pytest
 
+from chatbot.adapters.outbound.documents import resolve_document_title
 from chatbot.application import (
     ChatEvent,
     ChatEventType,
@@ -8,7 +9,6 @@ from chatbot.application import (
     SourcePage,
     UnsupportedModelError,
 )
-from chatbot.application.document_titles import document_title
 from chatbot.application.use_cases import EndSessionService, ModelCatalog, ReadinessService
 from chatbot.domain import ChatSession
 
@@ -73,7 +73,7 @@ async def test_readiness_service_translates_dependency_state(
 def test_application_data_contracts_are_immutable_values() -> None:
     request = ChatRequest(session_id="session", message="pergunta", model="model-a")
     event = ChatEvent(type=ChatEventType.TOKEN, content="resposta")
-    page = SourcePage(source="apostila.pdf", page=1, text="conteúdo")
+    page = SourcePage(source="apostila.pdf", title="Apostila", page=1, text="conteúdo")
     result = IngestionResult(documents=1, chunks=2, embedded_chunks=1, skipped_chunks=1)
 
     assert request.model == "model-a"
@@ -108,4 +108,4 @@ def test_document_title_resolves_known_documents_and_fallback(
     source: str,
     title: str,
 ) -> None:
-    assert document_title(source) == title
+    assert resolve_document_title(source) == title

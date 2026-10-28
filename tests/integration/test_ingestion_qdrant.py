@@ -21,7 +21,12 @@ class CharacterEncoding:
 
 
 async def test_reingestion_skips_embeddings_through_qdrant_adapter() -> None:
-    page = SourcePage(source="apostila.pdf", page=1, text="conteúdo indexável")
+    page = SourcePage(
+        source="apostila.pdf",
+        title="Apostila",
+        page=1,
+        text="conteúdo indexável",
+    )
     chunker = TokenChunker(
         chunk_size=100,
         overlap=0,
@@ -55,7 +60,6 @@ async def test_reingestion_skips_embeddings_through_qdrant_adapter() -> None:
             url="https://qdrant.test",
             api_key="secret",
             collection_name="knowledge-v1",
-            embedding=embedding,
         )
     service = IngestionService(
         source=FakeDocumentSource([page]),

@@ -38,11 +38,13 @@ class Citation:
     """Referência verificável para uma página da base."""
 
     source: str
+    title: str
     page: int
     chunk_id: str
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "source", _required_text(self.source, "source"))
+        object.__setattr__(self, "title", _required_text(self.title, "title"))
         object.__setattr__(self, "chunk_id", _required_text(self.chunk_id, "chunk_id"))
         if self.page < 1:
             raise InvalidPageError("page deve ser maior ou igual a 1")
@@ -55,17 +57,23 @@ class DocumentChunk:
     id: str
     text: str
     source: str
+    title: str
     page: int
     content_hash: str
 
     def __post_init__(self) -> None:
-        for name in ("id", "text", "source", "content_hash"):
+        for name in ("id", "text", "source", "title", "content_hash"):
             object.__setattr__(self, name, _required_text(getattr(self, name), name))
         if self.page < 1:
             raise InvalidPageError("page deve ser maior ou igual a 1")
 
     def citation(self) -> Citation:
-        return Citation(source=self.source, page=self.page, chunk_id=self.id)
+        return Citation(
+            source=self.source,
+            title=self.title,
+            page=self.page,
+            chunk_id=self.id,
+        )
 
 
 @dataclass(frozen=True, slots=True)

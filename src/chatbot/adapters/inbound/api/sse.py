@@ -2,7 +2,6 @@
 
 import json
 
-from chatbot.application.document_titles import document_title
 from chatbot.application.models import ChatEvent, ChatEventType
 
 
@@ -14,7 +13,7 @@ def encode_chat_event(event: ChatEvent) -> str:
         payload["citations"] = [
             {
                 "source": citation.source,
-                "title": document_title(citation.source),
+                "title": citation.title,
                 "page": citation.page,
                 "chunk_id": citation.chunk_id,
             }

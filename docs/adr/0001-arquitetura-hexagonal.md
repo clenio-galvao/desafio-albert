@@ -24,6 +24,11 @@ externas permanecem encapsulados pelos casos de uso. O chat oferece um
 preflight de aplicação para validar modelo e tamanho antes de o HTTP iniciar a
 resposta SSE.
 
+O router depende do protocolo `ApplicationServices`, definido na aplicação, e
+recebe sua implementação pelo estado da aplicação FastAPI. Tanto a API quanto
+a ingestão são compostas por fábricas do mesmo `bootstrap.py`; scripts apenas
+solicitam o grafo adequado e encerram todos os recursos retornados.
+
 ## Consequências
 
 - Regras e testes não dependem de FastAPI, OpenAI ou Qdrant.

@@ -6,7 +6,7 @@ import pytest
 
 from chatbot.application import ChatEventType, ChatRequest
 from chatbot.application.contextualization import RecentHistoryContextualizer
-from chatbot.application.document_titles import document_title
+from chatbot.application.prompting import GroundedPromptBuilder
 from chatbot.application.use_cases import GroundedChatService, ModelCatalog
 from chatbot.domain import DocumentChunk, RetrievedChunk
 from chatbot.evaluation import ObservedCitation, evaluate_answer
@@ -59,6 +59,7 @@ def _retrieved_for(case: EvaluationCase) -> tuple[RetrievedChunk, ...]:
         id=f"{case['id']}-chunk",
         text="; ".join(group[0] for group in case["required_concepts"]),
         source=_SOURCE_BY_TITLE[title],
+        title=title,
         page=page,
         content_hash=f"{case['id']}-hash",
     )
@@ -77,6 +78,7 @@ async def test_offline_rag_dataset_through_application_service(
         sessions=FakeSessionRepository(),
         models=ModelCatalog(["model-a"]),
         contextualizer=RecentHistoryContextualizer(max_history_messages=4),
+        prompt_builder=GroundedPromptBuilder(),
         max_session_messages=12,
         retrieval_limit=5,
         score_threshold=0.35,
@@ -109,7 +111,7 @@ async def test_offline_rag_dataset_through_application_service(
     )
     citations = tuple(
         ObservedCitation(
-            title=document_title(citation.source),
+            title=citation.title,
             page=citation.page,
         )
         for citation in metadata.citations

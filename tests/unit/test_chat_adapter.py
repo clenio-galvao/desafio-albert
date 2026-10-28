@@ -4,10 +4,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from chatbot.adapters.outbound.openai_compatible.chat import (
-    SYSTEM_PROMPT,
-    OpenAIChatAdapter,
-)
+from chatbot.adapters.outbound.openai_compatible.chat import OpenAIChatAdapter
+from chatbot.application import PromptMessage, PromptRole
+from chatbot.application.prompting import SYSTEM_PROMPT, GroundedPromptBuilder
 from chatbot.domain import DocumentChunk, Message, MessageRole
 
 
@@ -16,6 +15,7 @@ def make_chunk(text: str = "conteúdo confiável") -> DocumentChunk:
         id="chunk",
         text=text,
         source="apostila.pdf",
+        title="Apostila",
         page=2,
         content_hash="hash",
     )
@@ -52,14 +52,16 @@ async def fake_chunks() -> AsyncIterator[object]:
 async def test_chat_adapter_streams_only_content_tokens() -> None:
     adapter, client = build_adapter()
     client.chat.completions.create.return_value = fake_chunks()
-    messages = [Message(MessageRole.USER, "pergunta")]
+    messages = [
+        PromptMessage(PromptRole.SYSTEM, "regra"),
+        PromptMessage(PromptRole.USER, "pergunta"),
+    ]
 
     tokens = [
         token
         async for token in adapter.stream(
             model="model-a",
             messages=messages,
-            context=[make_chunk()],
         )
     ]
 
@@ -67,6 +69,10 @@ async def test_chat_adapter_streams_only_content_tokens() -> None:
     call = client.chat.completions.create.await_args.kwargs
     assert call["model"] == "model-a"
     assert call["stream"] is True
+    assert call["messages"] == [
+        {"role": "system", "content": "regra"},
+        {"role": "user", "content": "pergunta"},
+    ]
 
 
 def test_chat_adapter_separates_untrusted_context_from_system_rules() -> None:
@@ -77,16 +83,16 @@ def test_chat_adapter_separates_untrusted_context_from_system_rules() -> None:
         Message(MessageRole.USER, "pergunta atual"),
     ]
 
-    converted = OpenAIChatAdapter._build_messages(messages, [make_chunk(injection)])
+    converted = GroundedPromptBuilder().build(messages, [make_chunk(injection)])
 
-    assert converted[0] == {"role": "system", "content": SYSTEM_PROMPT}
+    assert converted[0] == PromptMessage(PromptRole.SYSTEM, SYSTEM_PROMPT)
     assert injection not in SYSTEM_PROMPT
-    assert converted[1] == {"role": "user", "content": "pergunta anterior"}
-    assert converted[2] == {"role": "assistant", "content": "resposta anterior"}
-    assert injection in str(converted[3]["content"])
-    assert "FONTES_NAO_CONFIAVEIS_JSON" in str(converted[3]["content"])
-    assert '"title": "Apostila"' in str(converted[3]["content"])
-    assert '"reference"' not in str(converted[3]["content"])
+    assert converted[1] == PromptMessage(PromptRole.USER, "pergunta anterior")
+    assert converted[2] == PromptMessage(PromptRole.ASSISTANT, "resposta anterior")
+    assert injection in converted[3].content
+    assert "FONTES_NAO_CONFIAVEIS_JSON" in converted[3].content
+    assert '"title": "Apostila"' in converted[3].content
+    assert '"reference"' not in converted[3].content
     assert "até 120 palavras" in SYSTEM_PROMPT
     assert "inclua todos os itens" in SYSTEM_PROMPT
     assert "não acrescente itens de outras fontes" in SYSTEM_PROMPT
@@ -103,7 +109,7 @@ def test_chat_adapter_separates_untrusted_context_from_system_rules() -> None:
 )
 def test_chat_adapter_requires_current_user_message(messages: list[Message]) -> None:
     with pytest.raises(ValueError, match="última mensagem"):
-        OpenAIChatAdapter._build_messages(messages, [make_chunk()])
+        GroundedPromptBuilder().build(messages, [make_chunk()])
 
 
 async def test_chat_adapter_closes_client() -> None:

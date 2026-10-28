@@ -14,8 +14,15 @@ Separar ingestão e consulta. Scripts explícitos baixam os documentos e executa
 extração, normalização, chunking e embeddings antes do deploy. Cada chunk
 recebe ID e hash determinísticos; hashes já existentes são ignorados.
 
-Persistir vetores e payloads no Qdrant Cloud, com índices para `source`, `page`
-e `content_hash`. PDFs e índices locais permanecem fora do Git.
+Persistir vetores e payloads no Qdrant Cloud, com `title` extraído do catálogo
+de documentos durante a ingestão e índices para `source`, `page` e
+`content_hash`. Assim, citações consomem metadados do documento sem inferir
+títulos por substring durante uma resposta. PDFs e índices locais permanecem
+fora do Git.
+
+O `bootstrap.py` também compõe o grafo da ingestão, incluindo tokenizer,
+embedding e índice vetorial. O script de linha de comando somente executa esse
+caso de uso e fecha todos os recursos.
 
 ## Consequências
 

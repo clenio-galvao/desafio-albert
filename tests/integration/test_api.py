@@ -63,7 +63,14 @@ class FakeChat:
         self.requests.append(request)
         yield ChatEvent(
             type=ChatEventType.METADATA,
-            citations=(Citation(source="apostila.pdf", page=3, chunk_id="chunk"),),
+            citations=(
+                Citation(
+                    source="apostila.pdf",
+                    title="Apostila",
+                    page=3,
+                    chunk_id="chunk",
+                ),
+            ),
         )
         if self.error is not None:
             raise self.error

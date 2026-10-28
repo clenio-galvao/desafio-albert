@@ -5,7 +5,7 @@ import pytest
 from chatbot.application import ChatEvent, ChatEventType, ChatRequest
 from chatbot.application.exceptions import MessageTooLongError
 from chatbot.application.use_cases import ModelCatalog
-from chatbot.bootstrap import ApplicationContainer, build_container
+from chatbot.bootstrap import ApplicationContainer, build_container, build_ingestion
 from chatbot.config import Settings
 
 
@@ -74,3 +74,7 @@ async def test_build_container_composes_real_adapters_without_network_calls() ->
         )
     assert len(container.resources) == 3
     await container.close()
+
+    ingestion = build_ingestion(settings)
+    assert len(ingestion.resources) == 2
+    await ingestion.close()
