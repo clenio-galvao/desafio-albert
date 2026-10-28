@@ -1,7 +1,15 @@
 """Implementações dos casos de uso."""
 
 from chatbot.application.use_cases.answer_question import GroundedChatService
+from chatbot.application.use_cases.check_readiness import ReadinessService
+from chatbot.application.use_cases.end_session import EndSessionService
 from chatbot.application.use_cases.ingest_knowledge_base import IngestionService
 from chatbot.application.use_cases.list_models import ModelCatalog
 
-__all__ = ["GroundedChatService", "IngestionService", "ModelCatalog"]
+__all__ = [
+    "EndSessionService",
+    "GroundedChatService",
+    "IngestionService",
+    "ModelCatalog",
+    "ReadinessService",
+]

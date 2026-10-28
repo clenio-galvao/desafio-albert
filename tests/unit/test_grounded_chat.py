@@ -4,6 +4,7 @@ from chatbot.application import (
     ChatEventType,
     ChatRequest,
     EmptyGenerationError,
+    MessageTooLongError,
     UnsupportedModelError,
 )
 from chatbot.application.contextualization import RecentHistoryContextualizer
@@ -84,6 +85,17 @@ def test_grounded_chat_validates_configuration() -> None:
         make_service(score_threshold=-0.1)
     with pytest.raises(ValueError, match="score_threshold"):
         make_service(score_threshold=1.1)
+    with pytest.raises(ValueError, match="max_message_length"):
+        make_service(max_message_length=0)
+
+
+def test_grounded_chat_preflight_rejects_long_message() -> None:
+    service = make_service(max_message_length=5)
+
+    with pytest.raises(MessageTooLongError, match="5"):
+        service.validate(
+            ChatRequest(session_id="session", message="muito longa", model="model-a")
+        )
 
 
 async def test_grounded_chat_streams_answer_with_citations_and_saves_history() -> None:

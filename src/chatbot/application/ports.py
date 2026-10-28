@@ -70,7 +70,21 @@ class DocumentSourcePort(Protocol):
 class AnswerQuestion(Protocol):
     """Porta de entrada do chat em streaming."""
 
+    def validate(self, request: ChatRequest) -> None: ...
+
     def stream(self, request: ChatRequest) -> AsyncGenerator[ChatEvent, None]: ...
+
+
+class EndSession(Protocol):
+    """Porta de entrada para encerrar uma conversa."""
+
+    async def execute(self, session_id: str) -> bool: ...
+
+
+class CheckReadiness(Protocol):
+    """Porta de entrada para verificar dependências da aplicação."""
+
+    async def execute(self) -> bool: ...
 
 
 class IngestKnowledgeBase(Protocol):

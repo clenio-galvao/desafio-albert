@@ -3,7 +3,7 @@
 from collections.abc import AsyncGenerator
 
 from chatbot.application.contextualization import RecentHistoryContextualizer
-from chatbot.application.exceptions import EmptyGenerationError
+from chatbot.application.exceptions import EmptyGenerationError, MessageTooLongError
 from chatbot.application.models import ChatEvent, ChatEventType, ChatRequest
 from chatbot.application.ports import LLMPort, RetrieverPort, SessionRepositoryPort
 from chatbot.application.use_cases.list_models import ModelCatalog
@@ -28,6 +28,7 @@ class GroundedChatService:
         max_session_messages: int = 12,
         retrieval_limit: int = 5,
         score_threshold: float = 0.7,
+        max_message_length: int = 4000,
     ) -> None:
         if max_session_messages < 2:
             raise ValueError("max_session_messages deve ser maior ou igual a 2")
@@ -35,6 +36,8 @@ class GroundedChatService:
             raise ValueError("retrieval_limit deve ser maior que zero")
         if not 0 <= score_threshold <= 1:
             raise ValueError("score_threshold deve estar entre 0 e 1")
+        if max_message_length < 1:
+            raise ValueError("max_message_length deve ser maior que zero")
         self._llm = llm
         self._retriever = retriever
         self._sessions = sessions
@@ -43,9 +46,18 @@ class GroundedChatService:
         self._max_session_messages = max_session_messages
         self._retrieval_limit = retrieval_limit
         self._score_threshold = score_threshold
+        self._max_message_length = max_message_length
+
+    def validate(self, request: ChatRequest) -> None:
+        """Executa políticas antes de o transporte iniciar o streaming."""
+        self._models.ensure_supported(request.model)
+        if len(request.message) > self._max_message_length:
+            raise MessageTooLongError(
+                f"message excede o limite de {self._max_message_length} caracteres"
+            )
 
     async def stream(self, request: ChatRequest) -> AsyncGenerator[ChatEvent, None]:
-        self._models.ensure_supported(request.model)
+        self.validate(request)
         user_message = Message(role=MessageRole.USER, content=request.message)
         session = await self._session_copy(request.session_id)
         retrieval_query = self._contextualizer.contextualize(

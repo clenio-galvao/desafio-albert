@@ -9,13 +9,16 @@ from httpx import ASGITransport, AsyncClient
 from chatbot.adapters.inbound.api.router import stream_chat
 from chatbot.adapters.inbound.api.schemas import ChatBody
 from chatbot.application import ChatEvent, ChatEventType, ChatRequest
-from chatbot.application.exceptions import ApplicationError
+from chatbot.application.exceptions import (
+    ApplicationError,
+    ChatValidationError,
+    MessageTooLongError,
+    UnsupportedModelError,
+)
 from chatbot.application.use_cases import ModelCatalog
 from chatbot.bootstrap import ApplicationContainer
-from chatbot.domain import ChatSession, Citation
+from chatbot.domain import Citation
 from chatbot.main import create_app
-
-from ..fakes import FakeSessionRepository
 
 
 class FakeReadiness:
@@ -23,10 +26,19 @@ class FakeReadiness:
         self.value = ready
         self.error = error
 
-    async def ready(self) -> bool:
+    async def execute(self) -> bool:
         if self.error is not None:
             raise self.error
         return self.value
+
+
+class FakeEndSession:
+    def __init__(self) -> None:
+        self.session_ids: list[str] = []
+
+    async def execute(self, session_id: str) -> bool:
+        self.session_ids.append(session_id)
+        return True
 
 
 class FakeChat:
@@ -34,10 +46,18 @@ class FakeChat:
         self,
         error: BaseException | None = None,
         tokens: tuple[str, ...] = ("Olá",),
+        validation_error: ChatValidationError | None = None,
     ) -> None:
         self.error = error
         self.tokens = tokens
+        self.validation_error = validation_error
+        self.validated: list[ChatRequest] = []
         self.requests: list[ChatRequest] = []
+
+    def validate(self, request: ChatRequest) -> None:
+        self.validated.append(request)
+        if self.validation_error is not None:
+            raise self.validation_error
 
     async def stream(self, request: ChatRequest) -> AsyncGenerator[ChatEvent, None]:
         self.requests.append(request)
@@ -56,14 +76,13 @@ def make_container(
     *,
     chat: FakeChat | None = None,
     readiness: FakeReadiness | None = None,
-    max_message_length: int = 100,
+    end_session: FakeEndSession | None = None,
 ) -> ApplicationContainer:
     return ApplicationContainer(
         chat=chat or FakeChat(),
         models=ModelCatalog(["model-a", "model-b"]),
-        sessions=FakeSessionRepository(),
+        end_session=end_session or FakeEndSession(),
         readiness=readiness or FakeReadiness(),
-        max_message_length=max_message_length,
     )
 
 
@@ -75,10 +94,8 @@ def make_client(container: ApplicationContainer) -> AsyncClient:
 
 
 async def test_health_models_and_session_contracts() -> None:
-    container = make_container()
-    await container.sessions.save(
-        ChatSession(id="session", max_messages=2)
-    )
+    end_session = FakeEndSession()
+    container = make_container(end_session=end_session)
     async with make_client(container) as client:
         live = await client.get("/health/live")
         ready = await client.get("/health/ready")
@@ -89,7 +106,7 @@ async def test_health_models_and_session_contracts() -> None:
     assert ready.json() == {"status": "ready"}
     assert models.json() == {"models": ["model-a", "model-b"]}
     assert deleted.status_code == 204
-    assert await container.sessions.get("session") is None
+    assert end_session.session_ids == ["session"]
 
 
 @pytest.mark.parametrize(
@@ -140,30 +157,32 @@ async def test_chat_preserves_multiple_partial_tokens_before_done() -> None:
 
 
 @pytest.mark.parametrize(
-    ("payload", "max_length", "detail"),
+    ("payload", "validation_error", "detail"),
     [
         (
             {"session_id": "session", "message": "pergunta", "model": "unknown"},
-            100,
+            UnsupportedModelError("modelo não permitido: unknown"),
             "modelo não permitido",
         ),
         (
             {"session_id": "session", "message": "muito longa", "model": "model-a"},
-            5,
+            MessageTooLongError("message excede o limite de 5 caracteres"),
             "message excede",
         ),
     ],
 )
 async def test_chat_rejects_invalid_model_or_configured_length(
     payload: dict[str, str],
-    max_length: int,
+    validation_error: ChatValidationError,
     detail: str,
 ) -> None:
-    async with make_client(make_container(max_message_length=max_length)) as client:
+    chat = FakeChat(validation_error=validation_error)
+    async with make_client(make_container(chat=chat)) as client:
         response = await client.post("/v1/chat/stream", json=payload)
 
     assert response.status_code == 422
     assert detail in response.json()["detail"]
+    assert len(chat.validated) == 1
 
 
 async def test_chat_schema_rejects_extra_fields_and_invalid_session() -> None:

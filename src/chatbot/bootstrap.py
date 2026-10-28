@@ -12,10 +12,16 @@ from chatbot.application.contextualization import RecentHistoryContextualizer
 from chatbot.application.ports import (
     AnswerQuestion,
     AsyncClosePort,
-    ReadinessPort,
-    SessionRepositoryPort,
+    CheckReadiness,
+    EndSession,
+    ListModels,
 )
-from chatbot.application.use_cases import GroundedChatService, ModelCatalog
+from chatbot.application.use_cases import (
+    EndSessionService,
+    GroundedChatService,
+    ModelCatalog,
+    ReadinessService,
+)
 from chatbot.config import Settings
 
 
@@ -24,11 +30,10 @@ class ApplicationContainer:
     """Dependências disponibilizadas aos adapters de entrada."""
 
     chat: AnswerQuestion
-    models: ModelCatalog
-    sessions: SessionRepositoryPort
-    readiness: ReadinessPort
+    models: ListModels
+    end_session: EndSession
+    readiness: CheckReadiness
     resources: tuple[AsyncClosePort, ...] = ()
-    max_message_length: int = 4000
 
     async def close(self) -> None:
         for resource in reversed(self.resources):
@@ -67,12 +72,12 @@ def build_container(settings: Settings) -> ApplicationContainer:
         max_session_messages=settings.session_max_messages,
         retrieval_limit=settings.retrieval_top_k,
         score_threshold=settings.retrieval_score_threshold,
+        max_message_length=settings.max_message_length,
     )
     return ApplicationContainer(
         chat=chat,
         models=models,
-        sessions=sessions,
-        readiness=vector_store,
+        end_session=EndSessionService(sessions),
+        readiness=ReadinessService(vector_store),
         resources=(embedding, vector_store, llm),
-        max_message_length=settings.max_message_length,
     )

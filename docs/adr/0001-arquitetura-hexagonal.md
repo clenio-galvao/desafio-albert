@@ -18,9 +18,16 @@ dependências.
 FastAPI permanece como adapter de entrada. OpenAI-compatible, Qdrant, PDF e
 memória TTL são adapters de saída.
 
+O container expõe ao adapter HTTP somente portas de entrada: chat, catálogo de
+modelos, encerramento de sessão e readiness. Repositórios e dependências
+externas permanecem encapsulados pelos casos de uso. O chat oferece um
+preflight de aplicação para validar modelo e tamanho antes de o HTTP iniciar a
+resposta SSE.
+
 ## Consequências
 
 - Regras e testes não dependem de FastAPI, OpenAI ou Qdrant.
+- O router não acessa portas de saída nem duplica políticas da aplicação.
 - Provedores podem ser substituídos sem alterar os casos de uso.
 - A composição fica visível e simples de depurar.
 - Há mais interfaces e arquivos do que em uma implementação diretamente

@@ -10,7 +10,7 @@ from fastapi.responses import StreamingResponse
 
 from chatbot.adapters.inbound.api.schemas import ChatBody, HealthResponse, ModelsResponse
 from chatbot.adapters.inbound.api.sse import encode_chat_event, encode_error
-from chatbot.application.exceptions import ApplicationError, UnsupportedModelError
+from chatbot.application.exceptions import ApplicationError, ChatValidationError
 from chatbot.application.models import ChatRequest
 from chatbot.bootstrap import ApplicationContainer
 
@@ -36,7 +36,7 @@ async def liveness() -> HealthResponse:
 @router.get("/health/ready", response_model=HealthResponse, tags=["health"])
 async def readiness(container: Container) -> HealthResponse:
     try:
-        ready = await container.readiness.ready()
+        ready = await container.readiness.execute()
     except Exception:
         logger.exception("readiness_check_failed")
         ready = False
@@ -59,7 +59,7 @@ async def list_models(container: Container) -> ModelsResponse:
     tags=["chat"],
 )
 async def delete_session(session_id: str, container: Container) -> Response:
-    await container.sessions.delete(session_id)
+    await container.end_session.execute(session_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -69,24 +69,18 @@ async def stream_chat(
     request: Request,
     container: Container,
 ) -> StreamingResponse:
-    if len(body.message) > container.max_message_length:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail=f"message excede o limite de {container.max_message_length} caracteres",
-        )
-    try:
-        container.models.ensure_supported(body.model)
-    except UnsupportedModelError as error:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail=str(error),
-        ) from error
-
     chat_request = ChatRequest(
         session_id=body.session_id,
         message=body.message,
         model=body.model,
     )
+    try:
+        container.chat.validate(chat_request)
+    except ChatValidationError as error:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=str(error),
+        ) from error
 
     async def events() -> AsyncIterator[str]:
         stream = container.chat.stream(chat_request)

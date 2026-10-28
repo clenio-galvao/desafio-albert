@@ -6,7 +6,7 @@ recuperação semântica no Qdrant, modelos OpenAI-compatible intercambiáveis e
 memória temporária de conversa.
 
 O código, os testes e o histórico de decisões foram organizados para que a
-solução possa ser explicada e evoluída durante o processo seletivo.
+solução possa ser explicada e evoluída.
 
 ## Estado atual
 
@@ -55,7 +55,8 @@ flowchart LR
 - `application`: casos de uso, portas, contextualização e avaliação;
 - `adapters/inbound`: API FastAPI, SSE e página de demonstração;
 - `adapters/outbound`: gateway OpenAI-compatible, Qdrant, PDF e sessões;
-- `bootstrap.py`: composição explícita das dependências.
+- `bootstrap.py`: composição explícita das dependências e exposição exclusiva
+  de portas de entrada ao adapter HTTP.
 
 As decisões e alternativas estão registradas em [docs/adr](docs/adr/README.md).
 
@@ -157,7 +158,8 @@ iniciadas após os cabeçalhos HTTP, `error`. O roteiro completo está em
 
 `session_id` aceita letras, números, ponto, hífen, sublinhado e dois-pontos,
 com até 128 caracteres. Campos extras e modelos fora da allowlist retornam
-HTTP 422.
+HTTP 422. Modelo e limite configurável da mensagem são validados pela aplicação
+antes de o transporte iniciar a resposta SSE.
 
 ## Qualidade e avaliação
 

@@ -9,7 +9,10 @@ from chatbot.application import (
     UnsupportedModelError,
 )
 from chatbot.application.document_titles import document_title
-from chatbot.application.use_cases import ModelCatalog
+from chatbot.application.use_cases import EndSessionService, ModelCatalog, ReadinessService
+from chatbot.domain import ChatSession
+
+from ..fakes import FakeSessionRepository
 
 
 def test_model_catalog_normalizes_deduplicates_and_lists_models() -> None:
@@ -29,6 +32,42 @@ def test_model_catalog_rejects_unsupported_model() -> None:
 
     with pytest.raises(UnsupportedModelError, match="model-b"):
         catalog.ensure_supported("model-b")
+
+
+async def test_end_session_service_hides_repository_from_input_adapter() -> None:
+    sessions = FakeSessionRepository()
+    await sessions.save(ChatSession(id="session", max_messages=2))
+
+    deleted = await EndSessionService(sessions).execute("session")
+
+    assert deleted is True
+    assert await sessions.get("session") is None
+
+
+class ReadinessDependency:
+    def __init__(self, result: bool = True, error: Exception | None = None) -> None:
+        self.result = result
+        self.error = error
+
+    async def ready(self) -> bool:
+        if self.error is not None:
+            raise self.error
+        return self.result
+
+
+@pytest.mark.parametrize(
+    ("dependency", "expected"),
+    [
+        (ReadinessDependency(True), True),
+        (ReadinessDependency(False), False),
+        (ReadinessDependency(error=RuntimeError("offline")), False),
+    ],
+)
+async def test_readiness_service_translates_dependency_state(
+    dependency: ReadinessDependency,
+    expected: bool,
+) -> None:
+    assert await ReadinessService(dependency).execute() is expected
 
 
 def test_application_data_contracts_are_immutable_values() -> None:

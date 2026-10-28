@@ -2,7 +2,9 @@
 
 from chatbot.application.exceptions import (
     ApplicationError,
+    ChatValidationError,
     EmptyGenerationError,
+    MessageTooLongError,
     UnsupportedModelError,
 )
 from chatbot.application.models import (
@@ -15,11 +17,13 @@ from chatbot.application.models import (
 
 __all__ = [
     "ApplicationError",
+    "ChatValidationError",
     "ChatEvent",
     "ChatEventType",
     "ChatRequest",
     "EmptyGenerationError",
     "IngestionResult",
+    "MessageTooLongError",
     "SourcePage",
     "UnsupportedModelError",
 ]
