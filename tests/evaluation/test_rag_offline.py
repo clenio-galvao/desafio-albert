@@ -4,7 +4,7 @@ from typing import TypedDict, cast
 
 import pytest
 
-from chatbot.application import ChatEventType, ChatRequest
+from chatbot.application import ChatEventType, ChatPolicy, ChatRequest
 from chatbot.application.contextualization import RecentHistoryContextualizer
 from chatbot.application.prompting import GroundedPromptBuilder
 from chatbot.application.use_cases import GroundedChatService, ModelCatalog
@@ -79,9 +79,12 @@ async def test_offline_rag_dataset_through_application_service(
         models=ModelCatalog(["model-a"]),
         contextualizer=RecentHistoryContextualizer(max_history_messages=4),
         prompt_builder=GroundedPromptBuilder(),
-        max_session_messages=12,
-        retrieval_limit=5,
-        score_threshold=0.35,
+        policy=ChatPolicy(
+            max_session_messages=12,
+            retrieval_limit=3,
+            score_threshold=0.35,
+            max_message_length=4000,
+        ),
     )
     session_id = f"offline-{case['id']}"
 

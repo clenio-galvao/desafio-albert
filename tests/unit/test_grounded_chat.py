@@ -2,6 +2,7 @@ import pytest
 
 from chatbot.application import (
     ChatEventType,
+    ChatPolicy,
     ChatRequest,
     EmptyGenerationError,
     MessageTooLongError,
@@ -30,6 +31,25 @@ def make_retrieved_chunk(score: float = 0.9) -> RetrievedChunk:
     )
 
 
+_POLICY_FIELDS = {
+    "max_session_messages",
+    "retrieval_limit",
+    "score_threshold",
+    "max_message_length",
+}
+
+
+def make_policy(**changes: object) -> ChatPolicy:
+    values: dict[str, object] = {
+        "max_session_messages": 4,
+        "retrieval_limit": 3,
+        "score_threshold": 0.35,
+        "max_message_length": 4000,
+    }
+    values.update(changes)
+    return ChatPolicy(**values)  # type: ignore[arg-type]
+
+
 def make_service(
     *,
     llm: FakeLLM | None = None,
@@ -37,6 +57,12 @@ def make_service(
     sessions: FakeSessionRepository | None = None,
     **changes: object,
 ) -> GroundedChatService:
+    policy_changes = {
+        key: value for key, value in changes.items() if key in _POLICY_FIELDS
+    }
+    service_changes = {
+        key: value for key, value in changes.items() if key not in _POLICY_FIELDS
+    }
     options: dict[str, object] = {
         "llm": llm or FakeLLM(("res", "posta")),
         "retriever": retriever or FakeVectorStore([make_retrieved_chunk()]),
@@ -44,11 +70,9 @@ def make_service(
         "models": ModelCatalog(["model-a", "model-b"]),
         "contextualizer": RecentHistoryContextualizer(max_history_messages=2),
         "prompt_builder": GroundedPromptBuilder(),
-        "max_session_messages": 4,
-        "retrieval_limit": 3,
-        "score_threshold": 0.7,
+        "policy": make_policy(**policy_changes),
     }
-    options.update(changes)
+    options.update(service_changes)
     return GroundedChatService(**options)  # type: ignore[arg-type]
 
 
@@ -62,12 +86,12 @@ def make_service(
         ({"max_message_length": 0}, "max_message_length"),
     ],
 )
-def test_grounded_chat_rejects_invalid_configuration(
+def test_chat_policy_rejects_invalid_configuration(
     changes: dict[str, object],
     message: str,
 ) -> None:
     with pytest.raises(ValueError, match=message):
-        make_service(**changes)  # type: ignore[arg-type]
+        make_policy(**changes)
 
 
 def test_grounded_chat_preflight_rejects_long_message() -> None:

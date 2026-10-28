@@ -4,7 +4,7 @@ from collections.abc import AsyncGenerator
 
 from chatbot.application.contextualization import RecentHistoryContextualizer
 from chatbot.application.exceptions import EmptyGenerationError, MessageTooLongError
-from chatbot.application.models import ChatEvent, ChatEventType, ChatRequest
+from chatbot.application.models import ChatEvent, ChatEventType, ChatPolicy, ChatRequest
 from chatbot.application.ports import LLMPort, RetrieverPort, SessionRepositoryPort
 from chatbot.application.prompting import GroundedPromptBuilder
 from chatbot.application.use_cases.list_models import ModelCatalog
@@ -27,36 +27,22 @@ class GroundedChatService:
         models: ModelCatalog,
         contextualizer: RecentHistoryContextualizer,
         prompt_builder: GroundedPromptBuilder,
-        max_session_messages: int = 12,
-        retrieval_limit: int = 5,
-        score_threshold: float = 0.7,
-        max_message_length: int = 4000,
+        policy: ChatPolicy,
     ) -> None:
-        if max_session_messages < 2:
-            raise ValueError("max_session_messages deve ser maior ou igual a 2")
-        if retrieval_limit < 1:
-            raise ValueError("retrieval_limit deve ser maior que zero")
-        if not 0 <= score_threshold <= 1:
-            raise ValueError("score_threshold deve estar entre 0 e 1")
-        if max_message_length < 1:
-            raise ValueError("max_message_length deve ser maior que zero")
         self._llm = llm
         self._retriever = retriever
         self._sessions = sessions
         self._models = models
         self._contextualizer = contextualizer
         self._prompt_builder = prompt_builder
-        self._max_session_messages = max_session_messages
-        self._retrieval_limit = retrieval_limit
-        self._score_threshold = score_threshold
-        self._max_message_length = max_message_length
+        self._policy = policy
 
     def validate(self, request: ChatRequest) -> None:
         """Executa políticas antes de o transporte iniciar o streaming."""
         self._models.ensure_supported(request.model)
-        if len(request.message) > self._max_message_length:
+        if len(request.message) > self._policy.max_message_length:
             raise MessageTooLongError(
-                f"message excede o limite de {self._max_message_length} caracteres"
+                f"message excede o limite de {self._policy.max_message_length} caracteres"
             )
 
     async def stream(self, request: ChatRequest) -> AsyncGenerator[ChatEvent, None]:
@@ -70,8 +56,8 @@ class GroundedChatService:
         )
         retrieved = await self._retriever.search(
             retrieval_query,
-            limit=self._retrieval_limit,
-            score_threshold=self._score_threshold,
+            limit=self._policy.retrieval_limit,
+            score_threshold=self._policy.score_threshold,
         )
         session.add(user_message)
 
@@ -92,7 +78,7 @@ class GroundedChatService:
 
         response_parts: list[str] = []
         prompt = self._prompt_builder.build(
-            session.recent_messages(self._max_session_messages),
+            session.recent_messages(self._policy.max_session_messages),
             [item.chunk for item in retrieved],
         )
         async for token in self._llm.stream(
@@ -115,10 +101,13 @@ class GroundedChatService:
         """Trabalha sobre uma cópia isolada para não vazar estado entre turnos."""
         existing = await self._sessions.get(session_id)
         if existing is None:
-            return ChatSession(id=session_id, max_messages=self._max_session_messages)
+            return ChatSession(
+                id=session_id,
+                max_messages=self._policy.max_session_messages,
+            )
         return ChatSession(
             id=existing.id,
-            max_messages=self._max_session_messages,
-            messages=list(existing.messages[-self._max_session_messages :]),
+            max_messages=self._policy.max_session_messages,
+            messages=list(existing.messages[-self._policy.max_session_messages :]),
             updated_at=existing.updated_at,
         )

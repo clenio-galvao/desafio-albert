@@ -12,15 +12,20 @@ from fastapi.middleware.cors import CORSMiddleware
 from chatbot.adapters.inbound.api import router
 from chatbot.adapters.inbound.web import router as web_router
 from chatbot.bootstrap import ApplicationContainer, build_container
-from chatbot.config import Settings
+from chatbot.config import Settings, split_unique_csv
 
 
 def create_app(
     *,
     container: ApplicationContainer | None = None,
-    cors_origins: Sequence[str] = (),
+    cors_origins: Sequence[str] | None = None,
 ) -> FastAPI:
     """Cria a aplicação sem efeitos colaterais para facilitar testes."""
+    origins = (
+        tuple(cors_origins)
+        if cors_origins is not None
+        else split_unique_csv(os.getenv("CORS_ORIGINS", ""))
+    )
 
     @asynccontextmanager
     async def lifespan(application: FastAPI) -> AsyncIterator[None]:
@@ -40,10 +45,10 @@ def create_app(
     )
     if container is not None:
         application.state.container = container
-    if cors_origins:
+    if origins:
         application.add_middleware(
             CORSMiddleware,
-            allow_origins=list(cors_origins),
+            allow_origins=list(origins),
             allow_credentials=False,
             allow_methods=["GET", "POST", "DELETE"],
             allow_headers=["Content-Type"],
@@ -54,13 +59,7 @@ def create_app(
     return application
 
 
-app = create_app(
-    cors_origins=tuple(
-        origin.strip()
-        for origin in os.getenv("CORS_ORIGINS", "").split(",")
-        if origin.strip()
-    )
-)
+app = create_app()
 
 
 def run_server(**kwargs: Any) -> None:

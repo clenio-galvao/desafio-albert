@@ -5,6 +5,13 @@ from pathlib import Path
 from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+DEFAULT_MAX_MESSAGE_LENGTH = 4000
+
+
+def split_unique_csv(value: str) -> tuple[str, ...]:
+    """Separa CSV, ignora vazios e remove duplicatas preservando a ordem."""
+    return tuple(dict.fromkeys(item.strip() for item in value.split(",") if item.strip()))
+
 
 class Settings(BaseSettings):
     """Configuração da aplicação sem valores secretos no código."""
@@ -31,7 +38,11 @@ class Settings(BaseSettings):
     session_max_messages: int = Field(default=12, ge=2, le=50)
     session_max_count: int = Field(default=10_000, ge=1)
     retrieval_history_messages: int = Field(default=4, ge=0, le=20)
-    max_message_length: int = Field(default=4000, ge=100, le=20000)
+    max_message_length: int = Field(
+        default=DEFAULT_MAX_MESSAGE_LENGTH,
+        ge=100,
+        le=DEFAULT_MAX_MESSAGE_LENGTH,
+    )
     max_concurrent_streams: int = Field(default=32, ge=1, le=1000)
     stream_timeout_seconds: float = Field(default=60.0, ge=0, le=300)
     cors_origins: str = ""
@@ -46,18 +57,12 @@ class Settings(BaseSettings):
     @property
     def allowed_chat_models(self) -> tuple[str, ...]:
         """Normaliza e deduplica a allowlist configurada em `chat_models`."""
-        models = tuple(model.strip() for model in self.chat_models.split(",") if model.strip())
+        models = split_unique_csv(self.chat_models)
         if not models:
             raise ValueError("chat_models deve conter ao menos um modelo")
-        return tuple(dict.fromkeys(models))
+        return models
 
     @property
     def allowed_cors_origins(self) -> tuple[str, ...]:
         """Origens explícitas de CORS; vazio deixa o middleware desligado."""
-        return tuple(
-            dict.fromkeys(
-                origin.strip()
-                for origin in self.cors_origins.split(",")
-                if origin.strip()
-            )
-        )
+        return split_unique_csv(self.cors_origins)

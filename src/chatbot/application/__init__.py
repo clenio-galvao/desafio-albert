@@ -10,6 +10,7 @@ from chatbot.application.exceptions import (
 from chatbot.application.models import (
     ChatEvent,
     ChatEventType,
+    ChatPolicy,
     ChatRequest,
     IngestionResult,
     PromptMessage,
@@ -22,6 +23,7 @@ __all__ = [
     "ChatValidationError",
     "ChatEvent",
     "ChatEventType",
+    "ChatPolicy",
     "ChatRequest",
     "EmptyGenerationError",
     "IngestionResult",

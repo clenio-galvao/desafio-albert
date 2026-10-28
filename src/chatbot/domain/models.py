@@ -132,3 +132,12 @@ class ChatSession:
         if limit < 1:
             raise ValueError("limit deve ser maior ou igual a 1")
         return tuple(self.messages[-limit:])
+
+    def copy(self) -> "ChatSession":
+        """Devolve uma sessão independente, com as mesmas mensagens."""
+        return ChatSession(
+            id=self.id,
+            max_messages=self.max_messages,
+            messages=list(self.messages),
+            updated_at=self.updated_at,
+        )

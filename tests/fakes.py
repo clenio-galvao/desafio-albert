@@ -88,12 +88,13 @@ class FakeSessionRepository:
         self.sessions: dict[str, ChatSession] = {}
 
     async def get(self, session_id: str) -> ChatSession | None:
-        """Devolve a sessão armazenada sem copiar o estado."""
-        return self.sessions.get(session_id)
+        """Devolve uma cópia da sessão para isolar o estado armazenado."""
+        stored = self.sessions.get(session_id)
+        return None if stored is None else stored.copy()
 
     async def save(self, session: ChatSession) -> None:
-        """Substitui a sessão pela instância recebida."""
-        self.sessions[session.id] = session
+        """Guarda uma cópia isolada da sessão recebida."""
+        self.sessions[session.id] = session.copy()
 
     async def delete(self, session_id: str) -> bool:
         """Remove a sessão e informa se ela existia."""

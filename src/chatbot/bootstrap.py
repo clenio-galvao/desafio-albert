@@ -14,6 +14,7 @@ from chatbot.adapters.outbound.qdrant import QdrantVectorStore
 from chatbot.adapters.outbound.tiktoken_encoding import TiktokenEncoding
 from chatbot.application.chunking import TokenChunker
 from chatbot.application.contextualization import RecentHistoryContextualizer
+from chatbot.application.models import ChatPolicy
 from chatbot.application.ports import (
     AnswerQuestion,
     AsyncClosePort,
@@ -51,6 +52,16 @@ def _build_embedding_adapter(settings: Settings) -> OpenAIEmbeddingAdapter:
         api_key=settings.openai_api_key.get_secret_value(),
         model=settings.embedding_model,
         batch_size=settings.embedding_batch_size,
+    )
+
+
+def _chat_policy(settings: Settings) -> ChatPolicy:
+    """Copia os números de RAG e sessão do ambiente para o caso de uso."""
+    return ChatPolicy(
+        max_session_messages=settings.session_max_messages,
+        retrieval_limit=settings.retrieval_top_k,
+        score_threshold=settings.retrieval_score_threshold,
+        max_message_length=settings.max_message_length,
     )
 
 
@@ -121,10 +132,7 @@ def build_container(settings: Settings) -> ApplicationContainer:
             max_history_messages=settings.retrieval_history_messages
         ),
         prompt_builder=GroundedPromptBuilder(),
-        max_session_messages=settings.session_max_messages,
-        retrieval_limit=settings.retrieval_top_k,
-        score_threshold=settings.retrieval_score_threshold,
-        max_message_length=settings.max_message_length,
+        policy=_chat_policy(settings),
     )
     return ApplicationContainer(
         chat=chat,
@@ -159,10 +167,12 @@ def build_load_container(
             max_history_messages=_LOAD_HISTORY_MESSAGES
         ),
         prompt_builder=GroundedPromptBuilder(),
-        max_session_messages=_LOAD_MAX_SESSION_MESSAGES,
-        retrieval_limit=_LOAD_RETRIEVAL_LIMIT,
-        score_threshold=_LOAD_SCORE_THRESHOLD,
-        max_message_length=_LOAD_MAX_MESSAGE_LENGTH,
+        policy=ChatPolicy(
+            max_session_messages=_LOAD_MAX_SESSION_MESSAGES,
+            retrieval_limit=_LOAD_RETRIEVAL_LIMIT,
+            score_threshold=_LOAD_SCORE_THRESHOLD,
+            max_message_length=_LOAD_MAX_MESSAGE_LENGTH,
+        ),
     )
     return ApplicationContainer(
         chat=chat,

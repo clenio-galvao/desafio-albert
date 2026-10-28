@@ -8,16 +8,6 @@ from time import monotonic
 from chatbot.domain.models import ChatSession
 
 
-def _copy_session(session: ChatSession) -> ChatSession:
-    """Isola a sessão armazenada das mutações feitas pelo chamador."""
-    return ChatSession(
-        id=session.id,
-        max_messages=session.max_messages,
-        messages=list(session.messages),
-        updated_at=session.updated_at,
-    )
-
-
 class InMemorySessionRepository:
     """Armazena cópias de sessões com TTL renovado a cada salvamento e teto de memória."""
 
@@ -44,14 +34,14 @@ class InMemorySessionRepository:
         async with self._lock:
             self._evict_expired()
             stored = self._sessions.get(session_id)
-            return None if stored is None else _copy_session(stored[0])
+            return None if stored is None else stored[0].copy()
 
     async def save(self, session: ChatSession) -> None:
         """Renova o TTL, isola o estado e expulsa a sessão menos recente se necessário."""
         async with self._lock:
             self._evict_expired()
             self._sessions[session.id] = (
-                _copy_session(session),
+                session.copy(),
                 self._clock() + self._ttl_seconds,
             )
             self._sessions.move_to_end(session.id)

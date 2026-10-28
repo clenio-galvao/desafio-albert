@@ -15,6 +15,8 @@ class ChatEventType(StrEnum):
 
 
 class PromptRole(StrEnum):
+    """Papéis do prompt enviado ao modelo."""
+
     SYSTEM = "system"
     USER = "user"
     ASSISTANT = "assistant"
@@ -24,6 +26,27 @@ class PromptRole(StrEnum):
 class PromptMessage:
     role: PromptRole
     content: str
+
+
+@dataclass(frozen=True, slots=True)
+class ChatPolicy:
+    """Números de recuperação, sessão e mensagem usados pelo chat."""
+
+    max_session_messages: int
+    retrieval_limit: int
+    score_threshold: float
+    max_message_length: int
+
+    def __post_init__(self) -> None:
+        """Recusa combinações que tornariam o RAG ou a sessão inválidos."""
+        if self.max_session_messages < 2:
+            raise ValueError("max_session_messages deve ser maior ou igual a 2")
+        if self.retrieval_limit < 1:
+            raise ValueError("retrieval_limit deve ser maior que zero")
+        if not 0 <= self.score_threshold <= 1:
+            raise ValueError("score_threshold deve estar entre 0 e 1")
+        if self.max_message_length < 1:
+            raise ValueError("max_message_length deve ser maior que zero")
 
 
 @dataclass(frozen=True, slots=True)

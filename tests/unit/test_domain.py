@@ -166,6 +166,17 @@ def test_chat_session_rejects_initial_history_overflow() -> None:
         )
 
 
+def test_chat_session_copy_isolates_messages() -> None:
+    session = ChatSession(id="session", max_messages=4)
+    session.add(make_message("original"))
+
+    copied = session.copy()
+    copied.add(make_message("só na cópia"))
+
+    assert [message.content for message in session.messages] == ["original"]
+    assert [message.content for message in copied.messages] == ["original", "só na cópia"]
+
+
 def test_chat_session_rejects_invalid_recent_limit() -> None:
     session = ChatSession(id="session", max_messages=2)
 

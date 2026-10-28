@@ -30,31 +30,41 @@ class TokenChunker:
     def split(self, pages: Sequence[SourcePage]) -> tuple[DocumentChunk, ...]:
         """Gera trechos determinísticos com id, hash e posição estáveis por página."""
         chunks: list[DocumentChunk] = []
-        step = self._chunk_size - self._overlap
-
         for page in pages:
-            tokens = self._encoding.encode(page.text)
-            position = 0
-            for start in range(0, len(tokens), step):
-                text = self._encoding.decode(tokens[start : start + self._chunk_size]).strip()
-                if not text:
-                    continue
-                identity = f"{page.source}:{page.page}:{start}:{text}"
-                content_hash = sha256(identity.encode("utf-8")).hexdigest()
-                identifier = uuid5(NAMESPACE_URL, content_hash)
-                chunks.append(
-                    DocumentChunk(
-                        id=str(identifier),
-                        text=text,
-                        source=page.source,
-                        title=page.title,
-                        page=page.page,
-                        content_hash=content_hash,
-                        position=position,
-                    )
-                )
-                position += 1
-                if start + self._chunk_size >= len(tokens):
-                    break
-
+            chunks.extend(self._split_page(page))
         return tuple(chunks)
+
+    def _split_page(self, page: SourcePage) -> list[DocumentChunk]:
+        """Percorre a página em janelas com sobreposição e posição local."""
+        tokens = self._encoding.encode(page.text)
+        step = self._chunk_size - self._overlap
+        chunks: list[DocumentChunk] = []
+        position = 0
+        for start in range(0, len(tokens), step):
+            text = self._encoding.decode(tokens[start : start + self._chunk_size]).strip()
+            if text:
+                chunks.append(self._chunk_from_window(page, text, start, position))
+                position += 1
+            if start + self._chunk_size >= len(tokens):
+                break
+        return chunks
+
+    def _chunk_from_window(
+        self,
+        page: SourcePage,
+        text: str,
+        start: int,
+        position: int,
+    ) -> DocumentChunk:
+        """Identifica o trecho pelo conteúdo e pela origem da página."""
+        identity = f"{page.source}:{page.page}:{start}:{text}"
+        content_hash = sha256(identity.encode("utf-8")).hexdigest()
+        return DocumentChunk(
+            id=str(uuid5(NAMESPACE_URL, content_hash)),
+            text=text,
+            source=page.source,
+            title=page.title,
+            page=page.page,
+            content_hash=content_hash,
+            position=position,
+        )

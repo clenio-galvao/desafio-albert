@@ -99,14 +99,12 @@ async def stream_chat(
         """Serializa o caso de uso em eventos SSE e libera o gate ao terminar."""
         stream = container.chat.stream(chat_request)
         try:
-            timeout = container.stream_timeout_seconds
-            if timeout > 0:
-                async with asyncio.timeout(timeout):
-                    async for event in _iter_chat_events(request, stream):
-                        yield encode_chat_event(event)
-            else:
-                async for event in _iter_chat_events(request, stream):
-                    yield encode_chat_event(event)
+            async for event in _iter_timed_chat_events(
+                request,
+                stream,
+                container.stream_timeout_seconds,
+            ):
+                yield encode_chat_event(event)
         except TimeoutError:
             logger.warning("chat_stream_timeout", extra={"session_id": body.session_id})
             yield encode_error("tempo esgotado ao gerar a resposta.")
@@ -135,6 +133,22 @@ async def stream_chat(
             "X-Accel-Buffering": "no",
         },
     )
+
+
+async def _iter_timed_chat_events(
+    request: Request,
+    stream: AsyncGenerator[ChatEvent, None],
+    timeout_seconds: float,
+) -> AsyncIterator[ChatEvent]:
+    """Aplica o teto de geração quando configurado; zero deixa o stream sem limite."""
+    events = _iter_chat_events(request, stream)
+    if timeout_seconds <= 0:
+        async for event in events:
+            yield event
+        return
+    async with asyncio.timeout(timeout_seconds):
+        async for event in events:
+            yield event
 
 
 async def _iter_chat_events(

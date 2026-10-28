@@ -24,11 +24,63 @@ class EvaluationScore:
     passed: bool
 
 
+_REFUSAL_MARKERS = (
+    "nao encontrei informacao suficiente",
+    "nao ha informacao suficiente",
+    "as apostilas nao contem",
+    "os trechos fornecidos nao",
+)
+
+
 def _normalize_text(value: str) -> str:
     """Remove caixa, acentos e espaços extras para comparar textos."""
     decomposed = unicodedata.normalize("NFKD", value.casefold())
     without_accents = "".join(char for char in decomposed if not unicodedata.combining(char))
     return " ".join(without_accents.split())
+
+
+def _is_refusal(answer: str) -> bool:
+    """Detecta as recusas padronizadas do chatbot."""
+    return any(marker in answer for marker in _REFUSAL_MARKERS)
+
+
+def _retrieved_expected_source(
+    citations: tuple[ObservedCitation, ...],
+    expected_title: str,
+    expected_pages: tuple[int, ...],
+) -> bool:
+    """Confere se alguma citação observada aponta para o trecho esperado."""
+    normalized_title = _normalize_text(expected_title)
+    return any(
+        _normalize_text(citation.title) == normalized_title
+        and citation.page in expected_pages
+        for citation in citations
+    )
+
+
+def _cites_expected_source(
+    answer: str,
+    expected_title: str,
+    expected_pages: tuple[int, ...],
+) -> bool:
+    """Confere se a resposta menciona o título e ao menos uma página esperada."""
+    return _normalize_text(expected_title) in answer and any(
+        re.search(rf"\b{page}\b", answer) is not None for page in expected_pages
+    )
+
+
+def _concept_coverage(
+    answer: str,
+    required_concepts: tuple[tuple[str, ...], ...],
+) -> float:
+    """Fração dos grupos de conceitos em que ao menos um sinônimo aparece."""
+    if not required_concepts:
+        return 1.0
+    matched = sum(
+        any(_normalize_text(alternative) in answer for alternative in alternatives)
+        for alternatives in required_concepts
+    )
+    return matched / len(required_concepts)
 
 
 def evaluate_answer(
@@ -43,13 +95,7 @@ def evaluate_answer(
 ) -> EvaluationScore:
     """Avalia recuperação, citação, conceitos essenciais e recusa."""
     normalized_answer = _normalize_text(answer)
-    refusal_markers = (
-        "nao encontrei informacao suficiente",
-        "nao ha informacao suficiente",
-        "as apostilas nao contem",
-        "os trechos fornecidos nao",
-    )
-    refusal_correct = any(marker in normalized_answer for marker in refusal_markers)
+    refusal_correct = _is_refusal(normalized_answer)
 
     if not answerable:
         return EvaluationScore(
@@ -65,23 +111,13 @@ def evaluate_answer(
     if not 0 <= minimum_concept_coverage <= 1:
         raise ValueError("minimum_concept_coverage deve estar entre zero e um")
 
-    normalized_title = _normalize_text(expected_title)
-    retrieval_hit = any(
-        _normalize_text(citation.title) == normalized_title
-        and citation.page in expected_pages
-        for citation in citations
+    retrieval_hit = _retrieved_expected_source(citations, expected_title, expected_pages)
+    citation_present = _cites_expected_source(
+        normalized_answer,
+        expected_title,
+        expected_pages,
     )
-    citation_present = normalized_title in normalized_answer and any(
-        re.search(rf"\b{page}\b", normalized_answer) is not None
-        for page in expected_pages
-    )
-    matched_concepts = sum(
-        any(_normalize_text(alternative) in normalized_answer for alternative in alternatives)
-        for alternatives in required_concepts
-    )
-    concept_coverage = (
-        matched_concepts / len(required_concepts) if required_concepts else 1.0
-    )
+    concept_coverage = _concept_coverage(normalized_answer, required_concepts)
     passed = (
         retrieval_hit
         and citation_present

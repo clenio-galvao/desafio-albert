@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from chatbot.config import Settings
+from chatbot.config import DEFAULT_MAX_MESSAGE_LENGTH, Settings, split_unique_csv
 
 
 def make_settings(**changes: object) -> Settings:
@@ -40,6 +40,15 @@ def test_settings_default_retrieval_values() -> None:
     assert settings.retrieval_top_k == 3
     assert settings.retrieval_score_threshold == 0.35
     assert settings.retrieval_following_pages == 1
+    assert settings.max_message_length == DEFAULT_MAX_MESSAGE_LENGTH
+
+
+def test_split_unique_csv_strips_and_deduplicates() -> None:
+    assert split_unique_csv(" a, b, a , ") == ("a", "b")
+
+
+def test_split_unique_csv_returns_empty_for_blank_items() -> None:
+    assert split_unique_csv(" , ") == ()
 
 
 def test_settings_reject_empty_model_list() -> None:

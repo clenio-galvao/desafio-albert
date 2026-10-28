@@ -99,6 +99,19 @@ def test_answerable_evaluation_requires_expected_source(
         )
 
 
+def test_evaluation_treats_missing_concepts_as_full_coverage() -> None:
+    score = evaluate_answer(
+        answer="Resposta curta. [Documento, p. 1]",
+        citations=(ObservedCitation(title="Documento", page=1),),
+        answerable=True,
+        expected_title="Documento",
+        expected_pages=(1,),
+    )
+
+    assert score.concept_coverage == 1
+    assert score.passed is True
+
+
 def test_evaluation_validates_concept_threshold() -> None:
     with pytest.raises(ValueError, match="entre zero e um"):
         evaluate_answer(
