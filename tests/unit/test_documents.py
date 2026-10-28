@@ -3,6 +3,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
+from pypdf.errors import PdfReadError
 
 from chatbot.adapters.outbound.documents import (
     GoogleDriveFolderDownloader,
@@ -54,6 +55,19 @@ async def test_pdf_source_rejects_missing_empty_or_unreadable_directory(tmp_path
     with (
         patch("chatbot.adapters.outbound.documents.pdf.PdfReader", return_value=reader),
         pytest.raises(ValueError, match="texto extraível"),
+    ):
+        await PdfDirectorySource(tmp_path).load()
+
+
+async def test_pdf_source_propagates_corrupted_pdf_error(tmp_path: Path) -> None:
+    (tmp_path / "corrupted.pdf").write_bytes(b"not a pdf")
+
+    with (
+        patch(
+            "chatbot.adapters.outbound.documents.pdf.PdfReader",
+            side_effect=PdfReadError("corrupted"),
+        ),
+        pytest.raises(PdfReadError, match="corrupted"),
     ):
         await PdfDirectorySource(tmp_path).load()
 

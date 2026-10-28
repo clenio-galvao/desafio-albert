@@ -30,8 +30,13 @@ class FakeReadiness:
 
 
 class FakeChat:
-    def __init__(self, error: BaseException | None = None) -> None:
+    def __init__(
+        self,
+        error: BaseException | None = None,
+        tokens: tuple[str, ...] = ("Olá",),
+    ) -> None:
         self.error = error
+        self.tokens = tokens
         self.requests: list[ChatRequest] = []
 
     async def stream(self, request: ChatRequest) -> AsyncGenerator[ChatEvent, None]:
@@ -42,7 +47,8 @@ class FakeChat:
         )
         if self.error is not None:
             raise self.error
-        yield ChatEvent(type=ChatEventType.TOKEN, content="Olá")
+        for token in self.tokens:
+            yield ChatEvent(type=ChatEventType.TOKEN, content=token)
         yield ChatEvent(type=ChatEventType.DONE)
 
 
@@ -118,6 +124,19 @@ async def test_chat_stream_exposes_ordered_sse_events() -> None:
     assert "event: token\ndata: {\"content\":\"Olá\"}" in response.text
     assert response.text.endswith("event: done\ndata: {}\n\n")
     assert chat.requests[0].session_id == "session-1"
+
+
+async def test_chat_preserves_multiple_partial_tokens_before_done() -> None:
+    async with make_client(make_container(chat=FakeChat(tokens=("par", "cial")))) as client:
+        response = await client.post(
+            "/v1/chat/stream",
+            json={"session_id": "session", "message": "pergunta", "model": "model-a"},
+        )
+
+    first = response.text.index('event: token\ndata: {"content":"par"}')
+    second = response.text.index('event: token\ndata: {"content":"cial"}')
+    done = response.text.index("event: done")
+    assert first < second < done
 
 
 @pytest.mark.parametrize(
