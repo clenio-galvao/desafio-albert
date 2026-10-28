@@ -143,12 +143,12 @@ flowchart LR
 
 - [x] Criar e validar Dockerfile executado como usuário não-root.
 - [x] Criar `render.yaml` com health check.
-- [ ] Configurar segredos somente no Render e Qdrant.
+- [x] Configurar segredos somente no Render e Qdrant.
 - [x] Executar ingestão idempotente e validar a coleção.
-- [ ] Publicar e registrar a URL no README.
-- [ ] Executar smoke test completo.
-- [ ] Validar e documentar o cold start.
-- [ ] Confirmar CI, cobertura e histórico sem segredos.
+- [x] Publicar e registrar a URL no README.
+- [x] Executar smoke test completo.
+- [x] Validar e documentar o cold start.
+- [x] Confirmar CI, cobertura e histórico sem segredos.
 
 ## Critérios de aceite
 

@@ -15,7 +15,7 @@ solução possa ser explicada e evoluída durante o processo seletivo.
 - Os embeddings usam `cohere/embed-v4.0`.
 - A coleção atual possui 257 páginas indexadas.
 - A suíte possui mais de 100 testes e cobertura de branches de 100%.
-- O deploy público será realizado na Tarefa 9 do [roadmap](ROADMAP.md).
+- Aplicação publicada: <https://desafio-albert-chatbot.onrender.com/demo>.
 
 ## Base de conhecimento
 
@@ -191,6 +191,10 @@ O repositório contém `Dockerfile` e `render.yaml`. A imagem instala somente a
 aplicação e executa como usuário sem privilégios; PDFs, testes, `.env` e dados
 locais não entram no build.
 
+- Demo pública: <https://desafio-albert-chatbot.onrender.com/demo>;
+- Swagger público: <https://desafio-albert-chatbot.onrender.com/docs>;
+- Health check: <https://desafio-albert-chatbot.onrender.com/health/ready>.
+
 1. Envie a branch principal ao GitHub.
 2. No Render, crie um Blueprint a partir do repositório.
 3. Preencha os quatro valores marcados com `sync: false`:
@@ -200,8 +204,8 @@ locais não entram no build.
 
 A aplicação respeita a variável `PORT` da plataforma. A ingestão não ocorre
 durante o deploy; a coleção deve estar pronta no Qdrant. Em plano gratuito, o
-primeiro acesso depois de um período ocioso pode sofrer cold start. A URL
-pública será registrada aqui após a publicação.
+primeiro acesso depois de um período ocioso pode sofrer cold start de
+aproximadamente 50 segundos ou mais.
 
 ## Mídias presentes nas apostilas
 
