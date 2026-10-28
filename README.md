@@ -66,6 +66,36 @@ ignorado pelo Git. O segundo cria embeddings apenas para chunks ainda ausentes
 no Qdrant e imprime um resumo da operação. Revise as variáveis do `.env` antes
 de executá-lo, pois essa etapa realiza chamadas cobradas ao gateway.
 
+## Mídias presentes nas apostilas
+
+Na implementação atual, a ingestão processa somente o texto extraível dos
+PDFs. Textos que transcrevem um áudio dentro da própria página são indexados,
+mas arquivos de áudio incorporados, destinos de links e conteúdos de vídeos do
+YouTube não são acessados nem transcritos.
+
+Uma evolução futura poderá adicionar suporte a essas mídias durante a ingestão,
+nunca durante uma pergunta do usuário:
+
+1. Extrair anotações de links e arquivos incorporados, preservando PDF e página
+   de origem.
+2. Obter legendas ou transcrições já disponíveis nos vídeos.
+3. Usar um serviço de transcrição, como Whisper, somente quando não houver
+   texto disponível e após avaliar custo, licença e requisitos de execução.
+4. Dividir transcrições por intervalos de tempo, gerar embeddings e armazená-las
+   no Qdrant com URL, página, título e timestamp.
+5. Exibir referências no formato
+   `[Título da apostila, p. 29, áudio 00:37]`.
+
+Para manter a arquitetura hexagonal, essa evolução deverá introduzir portas
+como `MediaExtractorPort` e `TranscriptionPort`, adaptadores específicos para
+PDF, YouTube e transcrição, além de um caso de uso de ingestão multimídia.
+
+Downloads deverão aceitar apenas domínios permitidos, com limites de duração,
+tamanho e tempo de resposta para mitigar SSRF e consumo abusivo. Os testes
+automatizados usarão mídias simuladas e não dependerão de rede no CI. O
+processamento será prévio à publicação, mantendo a API de consulta leve e
+compatível com hospedagem gratuita.
+
 ## Segurança
 
 Copie `.env.example` para `.env` e preencha as credenciais apenas localmente.
