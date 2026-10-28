@@ -1,8 +1,21 @@
 """Contextualização econômica de consultas sem uma segunda chamada ao LLM."""
 
+import re
 from collections.abc import Sequence
 
 from chatbot.domain.models import Message
+
+_HISTORY_REFERENCE = re.compile(
+    r"^(?:e|mas|então)\b|"
+    r"\b(?:isso|isto|aquilo|ele|ela|eles|elas|esse|essa|esses|essas|"
+    r"anterior|acima)\b",
+    re.IGNORECASE,
+)
+_VAGUE_FOLLOW_UP = re.compile(
+    r"^(?:como|por que|quando|onde)\s+"
+    r"(?:funciona|acontece|ocorre|fazer|tratar)\??$",
+    re.IGNORECASE,
+)
 
 
 class RecentHistoryContextualizer:
@@ -15,6 +28,12 @@ class RecentHistoryContextualizer:
 
     def contextualize(self, question: str, history: Sequence[Message]) -> str:
         if self._max_history_messages == 0 or not history:
+            return question
+        normalized = " ".join(question.split())
+        if not (
+            _HISTORY_REFERENCE.search(normalized)
+            or _VAGUE_FOLLOW_UP.fullmatch(normalized)
+        ):
             return question
 
         recent = history[-self._max_history_messages :]

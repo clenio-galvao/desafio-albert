@@ -63,6 +63,11 @@ def test_contextualizer_uses_only_recent_history() -> None:
     assert query.endswith("Pergunta atual: e agora?")
     assert RecentHistoryContextualizer(0).contextualize("direta", history) == "direta"
     assert contextualizer.contextualize("direta", []) == "direta"
+    assert (
+        contextualizer.contextualize("O que é escuta terapêutica?", history)
+        == "O que é escuta terapêutica?"
+    )
+    assert "Contexto recente" in contextualizer.contextualize("Como funciona?", history)
 
 
 def test_contextualizer_rejects_negative_history_limit() -> None:
