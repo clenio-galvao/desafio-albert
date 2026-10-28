@@ -33,11 +33,12 @@ def make_chunk(**changes: object) -> DocumentChunk:
     return DocumentChunk(**values)  # type: ignore[arg-type]
 
 
-def test_message_normalizes_content_and_uses_utc() -> None:
-    message = make_message("  olá  ")
+def test_message_strips_content() -> None:
+    assert make_message("  olá  ").content == "olá"
 
-    assert message.content == "olá"
-    assert message.created_at.tzinfo is UTC
+
+def test_message_uses_utc() -> None:
+    assert make_message().created_at.tzinfo is UTC
 
 
 def test_message_rejects_empty_content() -> None:
@@ -45,7 +46,7 @@ def test_message_rejects_empty_content() -> None:
         make_message("   ")
 
 
-def test_citation_normalizes_fields_and_validates_page() -> None:
+def test_citation_strips_fields() -> None:
     citation = Citation(
         source=" apostila.pdf ",
         title=" Apostila ",
@@ -57,6 +58,8 @@ def test_citation_normalizes_fields_and_validates_page() -> None:
     assert citation.title == "Apostila"
     assert citation.chunk_id == "trecho-1"
 
+
+def test_citation_rejects_page_below_one() -> None:
     with pytest.raises(InvalidPageError):
         Citation(source="apostila.pdf", title="Apostila", page=0, chunk_id="trecho-1")
 
@@ -75,7 +78,7 @@ def test_citation_rejects_empty_required_fields(field: str) -> None:
         Citation(**values)  # type: ignore[arg-type]
 
 
-def test_document_chunk_normalizes_fields_and_builds_citation() -> None:
+def test_document_chunk_strips_fields() -> None:
     chunk = make_chunk(
         id=" chunk-1 ",
         text=" texto ",
@@ -86,9 +89,12 @@ def test_document_chunk_normalizes_fields_and_builds_citation() -> None:
 
     assert chunk.id == "chunk-1"
     assert chunk.text == "texto"
-    assert chunk.citation() == Citation(
-        source="fonte",
-        title="Título",
+
+
+def test_document_chunk_as_citation() -> None:
+    assert make_chunk().as_citation() == Citation(
+        source="apostila.pdf",
+        title="Apostila",
         page=3,
         chunk_id="chunk-1",
     )
@@ -105,8 +111,11 @@ def test_document_chunk_rejects_invalid_page() -> None:
         make_chunk(page=0)
 
 
-def test_document_chunk_defaults_to_first_position_and_rejects_negative() -> None:
+def test_document_chunk_defaults_position_to_zero() -> None:
     assert make_chunk().position == 0
+
+
+def test_document_chunk_rejects_negative_position() -> None:
     with pytest.raises(InvalidChunkPositionError):
         make_chunk(position=-1)
 
@@ -131,15 +140,24 @@ def test_chat_session_keeps_only_recent_messages() -> None:
     session.add(make_message("terceira"))
 
     assert session.id == "session-1"
-    assert [message.content for message in session.recent(2)] == ["segunda", "terceira"]
+    assert [message.content for message in session.recent_messages(2)] == [
+        "segunda",
+        "terceira",
+    ]
     assert session.updated_at >= previous_update
 
 
-def test_chat_session_validates_configuration_and_initial_history() -> None:
+def test_chat_session_rejects_empty_id() -> None:
     with pytest.raises(EmptyContentError, match="id"):
         ChatSession(id=" ", max_messages=2)
+
+
+def test_chat_session_rejects_low_max_messages() -> None:
     with pytest.raises(ValueError, match="max_messages"):
         ChatSession(id="session", max_messages=1)
+
+
+def test_chat_session_rejects_initial_history_overflow() -> None:
     with pytest.raises(SessionLimitError):
         ChatSession(
             id="session",
@@ -152,4 +170,4 @@ def test_chat_session_rejects_invalid_recent_limit() -> None:
     session = ChatSession(id="session", max_messages=2)
 
     with pytest.raises(ValueError, match="limit"):
-        session.recent(0)
+        session.recent_messages(0)

@@ -10,6 +10,7 @@ from chatbot.config import Settings
 
 
 def main() -> None:
+    """Preenche `title` nos pontos antigos sem recalcular embeddings."""
     settings = Settings()
     client = QdrantClient(
         url=settings.qdrant_url,

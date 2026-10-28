@@ -11,11 +11,12 @@ from contextlib import asynccontextmanager
 
 from httpx import ASGITransport, AsyncClient
 
+from chatbot.bootstrap import build_load_container
 from chatbot.load_testing import (
     DEFAULT_MESSAGE,
     DEFAULT_MODEL,
     LIVE_REQUEST_CAP,
-    client_timeout,
+    build_client_timeout,
     resolve_request_budget,
     run_load,
 )
@@ -24,26 +25,26 @@ from chatbot.main import create_app
 
 @asynccontextmanager
 async def load_client(target: str | None) -> AsyncIterator[tuple[str, AsyncClient]]:
+    """Abre cliente HTTP remoto ou a API in-process com dublês de carga."""
     if target:
         async with AsyncClient(
             base_url=target.rstrip("/"),
-            timeout=client_timeout(),
+            timeout=build_client_timeout(),
         ) as client:
             yield target.rstrip("/"), client
         return
-
-    from chatbot.bootstrap import build_load_container
 
     app = create_app(container=build_load_container())
     async with AsyncClient(
         transport=ASGITransport(app=app),
         base_url="http://load.local",
-        timeout=client_timeout(),
+        timeout=build_client_timeout(),
     ) as client:
         yield "asgi://load-doubles", client
 
 
-async def execute(args: argparse.Namespace) -> int:
+async def run_load_test(args: argparse.Namespace) -> int:
+    """Roda a carga, imprime o relatório e devolve código de saída pelo error_ratio."""
     live = bool(args.target)
     try:
         requests = resolve_request_budget(
@@ -64,7 +65,7 @@ async def execute(args: argparse.Namespace) -> int:
             model=args.model,
             message=args.message,
         )
-    print(json.dumps(report.to_dict(), ensure_ascii=False, indent=2))
+    print(json.dumps(report.as_dict(), ensure_ascii=False, indent=2))
     if live:
         print(
             f"perfil publicado limitado a {LIVE_REQUEST_CAP} requisições",
@@ -74,6 +75,7 @@ async def execute(args: argparse.Namespace) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """Declara usuários, volume, modelo e alvo opcional da carga."""
     parser = argparse.ArgumentParser(
         description="Teste de carga do chat SSE. Sem --target usa LLM e retriever fake.",
     )
@@ -93,7 +95,8 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> None:
-    raise SystemExit(asyncio.run(execute(build_parser().parse_args())))
+    """Ponto de entrada do script de carga."""
+    raise SystemExit(asyncio.run(run_load_test(build_parser().parse_args())))
 
 
 if __name__ == "__main__":

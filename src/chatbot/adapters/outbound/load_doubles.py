@@ -24,6 +24,7 @@ class LoadLLM:
         model: str,
         messages: Sequence[PromptMessage],
     ) -> AsyncIterator[str]:
+        """Emite tokens locais, opcionalmente espaçados para simular latência."""
         del model, messages
         for token in self._tokens:
             if self._delay_seconds > 0:
@@ -54,10 +55,14 @@ class LoadRetriever:
         limit: int,
         score_threshold: float,
     ) -> Sequence[RetrievedChunk]:
+        """Ignora a consulta e devolve evidência fixa até o limite pedido."""
         del query, score_threshold
         return self._results[:limit]
 
 
 class AlwaysReady:
+    """Dependência de prontidão que nunca falha no perfil de carga."""
+
     async def ready(self) -> bool:
+        """Sempre indica que a base fictícia está disponível."""
         return True

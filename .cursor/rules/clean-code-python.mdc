@@ -1,0 +1,39 @@
+---
+description: Clean code e Python no chatbot hexagonal
+alwaysApply: true
+---
+
+# Clean code
+
+Imports ficam no topo do módulo, agrupados (stdlib, terceiros, `chatbot`).
+Nunca importe no meio de função, método ou teste.
+
+```python
+# ❌
+def load_client(target: str | None) -> object:
+    from chatbot.bootstrap import build_load_container
+    return build_load_container()
+
+# ✅
+from chatbot.bootstrap import build_load_container
+```
+
+Uma função, um motivo para mudar. Extraia helper em vez de aninhar
+responsabilidades ou misturar I/O com regra de negócio.
+
+Nomes seguem a regra de nomenclatura: verbo na ação, `build_` na fábrica,
+`as_` na conversão. Constantes nomeadas substituem literais
+(`_HASH_SCROLL_BATCH = 256`).
+
+`src/chatbot`: `domain` e `application` não importam FastAPI, Qdrant, OpenAI
+nem HTTP. Adapters e `bootstrap.py` são os únicos que conhecem implementações.
+
+Casos de uso recebem portas no construtor. Não use service locator nem
+singleton escondido.
+
+Funções e métodos públicos têm docstring de uma linha, em português,
+explicando o motivo — não o nome. `__init__` fica documentado na classe.
+
+Trate erro no ponto que pode decidir a resposta. Não capture `Exception`
+no domínio; no adapter HTTP, traduza para SSE/`HTTPException` sem vazar
+detalhe interno.

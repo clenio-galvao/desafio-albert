@@ -12,7 +12,7 @@ from chatbot.load_testing import (
     LIVE_REQUEST_CAP,
     LoadReport,
     StreamSample,
-    client_timeout,
+    build_client_timeout,
     collect_stream,
     is_local_target,
     percentile,
@@ -22,25 +22,54 @@ from chatbot.load_testing import (
 from chatbot.main import create_app
 
 
-def test_percentile_interpolates_and_rejects_invalid_values() -> None:
+def test_percentile_returns_none_for_empty_values() -> None:
     assert percentile([], 50) is None
+
+
+def test_percentile_returns_single_value() -> None:
     assert percentile([10.0], 95) == 10.0
+
+
+def test_percentile_interpolates_p50() -> None:
     assert percentile([10.0, 20.0, 30.0, 40.0], 50) == 25.0
+
+
+def test_percentile_rejects_out_of_range() -> None:
     with pytest.raises(ValueError, match="percentil"):
         percentile([1.0], 120)
 
 
-def test_resolve_request_budget_caps_published_profile() -> None:
+@pytest.mark.parametrize(
+    "target",
+    ["http://127.0.0.1:8000", "http://localhost:8000", "http://[::1]/"],
+)
+def test_is_local_target_recognizes_loopback(target: str) -> None:
+    assert is_local_target(target) is True
+
+
+def test_is_local_target_rejects_public_host() -> None:
+    assert is_local_target("https://desafio-albert-chatbot.onrender.com") is False
+
+
+def test_resolve_request_budget_keeps_local_volume() -> None:
     assert resolve_request_budget(target="http://127.0.0.1:8000", requests=100, live=False) == 100
-    assert is_local_target("http://localhost:8000") is True
+
+
+def test_resolve_request_budget_rejects_zero_requests() -> None:
     with pytest.raises(ValueError, match="maior que zero"):
         resolve_request_budget(target="http://127.0.0.1", requests=0, live=False)
+
+
+def test_resolve_request_budget_caps_remote_url() -> None:
     with pytest.raises(ValueError, match=str(LIVE_REQUEST_CAP)):
         resolve_request_budget(
             target="https://desafio-albert-chatbot.onrender.com",
             requests=6,
             live=False,
         )
+
+
+def test_resolve_request_budget_allows_published_profile_within_cap() -> None:
     assert (
         resolve_request_budget(
             target="https://desafio-albert-chatbot.onrender.com",
@@ -63,7 +92,7 @@ def test_load_report_summarizes_errors_and_percentiles() -> None:
         ),
     )
 
-    payload = report.to_dict()
+    payload = report.as_dict()
     assert payload["error_ratio"] == 0.3333
     assert payload["completed_ratio"] == 0.6667
     assert payload["status_counts"] == {200: 2, 429: 1}
@@ -76,16 +105,16 @@ def test_empty_load_report_has_zero_ratios() -> None:
 
     assert report.completed_ratio == 0.0
     assert report.error_ratio == 0.0
-    empty_ttfb = cast(dict[str, float | None], report.to_dict()["ttfb_ms"])
+    empty_ttfb = cast(dict[str, float | None], report.as_dict()["ttfb_ms"])
     assert empty_ttfb["p50"] is None
 
 
-async def test_collect_stream_records_http_and_transport_errors() -> None:
+async def test_collect_stream_records_http_error_body() -> None:
     app = create_app(container=build_load_container(token_delay_seconds=0.0))
     async with AsyncClient(
         transport=ASGITransport(app=app),
         base_url="http://load.local",
-        timeout=client_timeout(10),
+        timeout=build_client_timeout(10),
     ) as client:
         rejected = await collect_stream(
             client,
@@ -93,13 +122,16 @@ async def test_collect_stream_records_http_and_transport_errors() -> None:
             model="modelo-invalido",
             message="oi",
         )
+
     assert rejected.status_code == 422
     assert rejected.completed is False
     assert rejected.error
 
+
+async def test_collect_stream_records_transport_error() -> None:
     async with AsyncClient(
         base_url="http://127.0.0.1:1",
-        timeout=client_timeout(0.2),
+        timeout=build_client_timeout(0.2),
     ) as client:
         failed = await collect_stream(
             client,
@@ -107,6 +139,7 @@ async def test_collect_stream_records_http_and_transport_errors() -> None:
             model="azure/gpt-5-mini",
             message="oi",
         )
+
     assert failed.completed is False
     assert failed.error
 
@@ -134,7 +167,7 @@ async def test_collect_stream_records_sse_error_events() -> None:
     async with AsyncClient(
         transport=ASGITransport(app=app),
         base_url="http://load.local",
-        timeout=client_timeout(10),
+        timeout=build_client_timeout(10),
     ) as client:
         sample = await collect_stream(
             client,
@@ -158,12 +191,27 @@ async def test_run_load_rejects_zero_users() -> None:
         await run_load(AsyncClient(), target="http://load.local", users=0, requests=1)
 
 
-async def test_load_llm_waits_between_tokens() -> None:
+async def test_load_llm_yields_configured_tokens() -> None:
+    llm = LoadLLM(tokens=("a", "b"), delay_seconds=0.0)
+
+    tokens = [token async for token in llm.stream(model="model", messages=())]
+
+    assert tokens == ["a", "b"]
+
+
+async def test_load_llm_waits_between_tokens(monkeypatch: pytest.MonkeyPatch) -> None:
+    waits: list[float] = []
+
+    async def fake_sleep(seconds: float) -> None:
+        waits.append(seconds)
+
+    monkeypatch.setattr("chatbot.adapters.outbound.load_doubles.asyncio.sleep", fake_sleep)
     llm = LoadLLM(tokens=("a", "b"), delay_seconds=0.001)
 
     tokens = [token async for token in llm.stream(model="model", messages=())]
 
     assert tokens == ["a", "b"]
+    assert waits == [0.001, 0.001]
 
 
 async def test_run_load_against_fake_container_completes_streams() -> None:
@@ -171,7 +219,7 @@ async def test_run_load_against_fake_container_completes_streams() -> None:
     async with AsyncClient(
         transport=ASGITransport(app=app),
         base_url="http://load.local",
-        timeout=client_timeout(10),
+        timeout=build_client_timeout(10),
     ) as client:
         report = await run_load(client, target="asgi://load-doubles", users=8, requests=16)
 

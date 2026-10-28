@@ -38,12 +38,14 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_chunk_overlap(self) -> "Settings":
+        """Impede sobreposição maior ou igual ao tamanho do chunk."""
         if self.chunk_overlap_tokens >= self.chunk_size_tokens:
             raise ValueError("chunk_overlap_tokens deve ser menor que chunk_size_tokens")
         return self
 
     @property
     def allowed_chat_models(self) -> tuple[str, ...]:
+        """Normaliza e deduplica a allowlist configurada em `chat_models`."""
         models = tuple(model.strip() for model in self.chat_models.split(",") if model.strip())
         if not models:
             raise ValueError("chat_models deve conter ao menos um modelo")
@@ -51,6 +53,7 @@ class Settings(BaseSettings):
 
     @property
     def allowed_cors_origins(self) -> tuple[str, ...]:
+        """Origens explícitas de CORS; vazio deixa o middleware desligado."""
         return tuple(
             dict.fromkeys(
                 origin.strip()

@@ -10,6 +10,7 @@ class ReadinessService:
         self._dependency = dependency
 
     async def execute(self) -> bool:
+        """Traduz falha da dependência em `False`, sem vazar o erro original."""
         try:
             return await self._dependency.ready()
         except Exception:

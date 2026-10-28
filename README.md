@@ -167,6 +167,38 @@ com até 128 caracteres. Campos extras e modelos fora da allowlist retornam
 HTTP 422. Modelo e limite configurável da mensagem são validados pela aplicação
 antes de o transporte iniciar a resposta SSE.
 
+## Streaming SSE
+
+A resposta chega por Server-Sent Events, não por WebSocket. Depois do
+`POST /v1/chat/stream`, o fluxo é só servidor → cliente: `metadata`,
+tokens e `done` (ou `error`). Cancelar é fechar o HTTP; a próxima
+pergunta é outro POST.
+
+SSE foi escolhido porque continua sendo HTTP: a demo usa `fetch`, o
+Swagger e o Postman funcionam, `curl -N` observa o stream e a chave
+permanece no backend. WebSocket exigiria handshake extra e só se
+justificaria se o cliente precisasse enviar mensagens durante a
+geração.
+
+SSE usa TCP. Pacote IP perdido é retransmitido e reordenado pela
+própria conexão; o browser não recebe o token 3 sem o 2. O que parece
+perda de pacote na prática é queda de conexão, timeout de proxy ou
+bufferização.
+
+Hoje a API desliga o cache (`Cache-Control: no-cache`,
+`X-Accel-Buffering: no`) e interrompe a geração se o cliente
+desconectar. A demo só conclui a resposta ao receber `done`. Sem
+`done`, o histórico não grava a resposta parcial e a pergunta pode
+ser reenviada. Não usamos `EventSource` nativo porque ele só faz GET.
+
+Se um dia for necessário não perder tokens já gerados, a ordem seria:
+comentários de keepalive no SSE para evitar idle timeout; retry da
+pergunta; depois buffer com `id` de evento e um `GET` de retomada
+(`Last-Event-ID`). WebSocket também é TCP: não elimina perda de
+pacotes e continuaria precisando de sequência e buffer no servidor.
+
+A decisão está em [ADR 0003](docs/adr/0003-openai-compatible-sse.md).
+
 ## Qualidade e avaliação
 
 ```bash
@@ -310,6 +342,30 @@ em [ADR 0005](docs/adr/0005-escalabilidade-carga.md).
 - O provedor é OpenAI-compatible, mas disponibilidade, latência e limites dos
   modelos continuam sendo responsabilidades externas.
 - Áudios e vídeos ainda não são ingeridos, conforme a seção anterior.
+- O streaming é SSE unidirecional; WebSocket ficaria para tráfego
+  bidirecional. Pacotes perdidos na rede são recuperados pelo TCP;
+  queda de conexão se trata com retry ou, se necessário, retomada por
+  `id` de evento, como na seção de streaming.
+
+## Convenções de código
+
+O estilo do repositório fica nas regras do Cursor, lidas em toda sessão
+de implementação:
+
+- [.cursor/rules/clean-code-python.mdc](.cursor/rules/clean-code-python.mdc)
+  — imports só no topo do módulo, uma responsabilidade por função,
+  constantes nomeadas, arquitetura hexagonal e docstring de uma linha
+  em português;
+- [.cursor/rules/nomenclatura.mdc](.cursor/rules/nomenclatura.mdc)
+  — verbos na ação (`search`, `require_container`), `build_` em
+  fábricas, `as_` em conversão, `is_`/`has_` em booleanos;
+- [.cursor/rules/pytest-um-comportamento.mdc](.cursor/rules/pytest-um-comportamento.mdc)
+  — um comportamento por teste; `parametrize` quando os casos
+  compartilham o mesmo acto.
+
+O Ruff reforça import fora do topo (`PLC0415`). Casos de uso de disparo
+único expõem `execute`; o chat usa `validate` e `stream` porque o canal
+permanece aberto.
 
 ## Uso de IA no desenvolvimento
 
@@ -332,6 +388,7 @@ evaluation/           dataset versionado de avaliação
 tests/                testes unitários, integração e avaliação offline
 docs/adr/             decisões arquiteturais
 docs/postman/         coleção para teste manual
+.cursor/rules/        convenções persistentes de código e testes
 ROADMAP.md            tarefas e histórico de execução
 ```
 
@@ -339,4 +396,7 @@ ROADMAP.md            tarefas e histórico de execução
 
 - [Roadmap e checklist por commit](ROADMAP.md);
 - [ADRs](docs/adr/README.md);
-- [Roteiro de demonstração e troubleshooting](docs/DEMO.md).
+- [Roteiro de demonstração e troubleshooting](docs/DEMO.md);
+- [Clean code](.cursor/rules/clean-code-python.mdc),
+  [nomenclatura](.cursor/rules/nomenclatura.mdc) e
+  [testes](.cursor/rules/pytest-um-comportamento.mdc).

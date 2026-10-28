@@ -22,6 +22,7 @@ class IngestionService:
         self._vector_store = vector_store
 
     async def execute(self) -> IngestionResult:
+        """Indexa só trechos novos, reutilizando hashes já persistidos."""
         pages = await self._source.load()
         chunks = self._chunker.split(pages)
         await self._vector_store.ensure_indexes()

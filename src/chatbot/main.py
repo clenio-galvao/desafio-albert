@@ -24,6 +24,7 @@ def create_app(
 
     @asynccontextmanager
     async def lifespan(application: FastAPI) -> AsyncIterator[None]:
+        """Compõe o container na subida e fecha clientes na descida."""
         active_container = container or build_container(Settings())
         application.state.container = active_container
         try:
@@ -62,10 +63,10 @@ app = create_app(
 )
 
 
-def run(**kwargs: Any) -> None:
+def run_server(**kwargs: Any) -> None:
     """Inicia o servidor quando executado pelo script instalado."""
     uvicorn.run("chatbot.main:app", host="0.0.0.0", port=8000, **kwargs)
 
 
 if __name__ == "__main__":
-    run()
+    run_server()

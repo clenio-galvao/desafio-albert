@@ -3,7 +3,7 @@ from collections.abc import AsyncGenerator
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from fastapi import Request
+from fastapi import FastAPI, Request
 from httpx import ASGITransport, AsyncClient
 
 from chatbot.adapters.inbound.api.router import stream_chat
@@ -101,19 +101,33 @@ def make_client(container: ApplicationContainer) -> AsyncClient:
     )
 
 
-async def test_health_models_and_session_contracts() -> None:
-    end_session = FakeEndSession()
-    container = make_container(end_session=end_session)
-    async with make_client(container) as client:
-        live = await client.get("/health/live")
-        ready = await client.get("/health/ready")
-        models = await client.get("/v1/models")
-        deleted = await client.delete("/v1/sessions/session")
+async def test_health_live_returns_ok() -> None:
+    async with make_client(make_container()) as client:
+        response = await client.get("/health/live")
 
-    assert live.json() == {"status": "ok"}
-    assert ready.json() == {"status": "ready"}
-    assert models.json() == {"models": ["model-a", "model-b"]}
-    assert deleted.status_code == 204
+    assert response.json() == {"status": "ok"}
+
+
+async def test_health_ready_when_dependencies_ok() -> None:
+    async with make_client(make_container()) as client:
+        response = await client.get("/health/ready")
+
+    assert response.json() == {"status": "ready"}
+
+
+async def test_list_models_returns_allowlist() -> None:
+    async with make_client(make_container()) as client:
+        response = await client.get("/v1/models")
+
+    assert response.json() == {"models": ["model-a", "model-b"]}
+
+
+async def test_delete_session_returns_204() -> None:
+    end_session = FakeEndSession()
+    async with make_client(make_container(end_session=end_session)) as client:
+        response = await client.delete("/v1/sessions/session")
+
+    assert response.status_code == 204
     assert end_session.session_ids == ["session"]
 
 
@@ -193,7 +207,22 @@ async def test_chat_rejects_invalid_model_or_configured_length(
     assert len(chat.validated) == 1
 
 
-async def test_chat_schema_rejects_extra_fields_and_invalid_session() -> None:
+async def test_chat_schema_rejects_unknown_body_fields() -> None:
+    async with make_client(make_container()) as client:
+        response = await client.post(
+            "/v1/chat/stream",
+            json={
+                "session_id": "session",
+                "message": "pergunta",
+                "model": "model-a",
+                "api_key": "não deve ser aceito",
+            },
+        )
+
+    assert response.status_code == 422
+
+
+async def test_chat_schema_rejects_invalid_session_id() -> None:
     async with make_client(make_container()) as client:
         response = await client.post(
             "/v1/chat/stream",
@@ -201,7 +230,6 @@ async def test_chat_schema_rejects_extra_fields_and_invalid_session() -> None:
                 "session_id": "espaço inválido",
                 "message": "pergunta",
                 "model": "model-a",
-                "api_key": "não deve ser aceito",
             },
         )
 
@@ -346,6 +374,7 @@ async def test_chat_propagates_task_cancellation() -> None:
 
     assert "event: metadata" in first_event
 
+
 async def test_routes_that_need_container_return_503_without_lifespan() -> None:
     async with AsyncClient(
         transport=ASGITransport(app=create_app()),
@@ -356,23 +385,35 @@ async def test_routes_that_need_container_return_503_without_lifespan() -> None:
     assert response.status_code == 503
 
 
-async def test_cors_allows_only_explicit_origin() -> None:
-    application = create_app(
+def _cors_app() -> FastAPI:
+    return create_app(
         container=make_container(),
         cors_origins=("https://frontend.test",),
     )
+
+
+async def test_cors_allows_configured_origin() -> None:
     async with AsyncClient(
-        transport=ASGITransport(app=application),
+        transport=ASGITransport(app=_cors_app()),
         base_url="http://test",
     ) as client:
-        allowed = await client.options(
+        response = await client.options(
             "/v1/models",
             headers={
                 "Origin": "https://frontend.test",
                 "Access-Control-Request-Method": "GET",
             },
         )
-        denied = await client.options(
+
+    assert response.headers["access-control-allow-origin"] == "https://frontend.test"
+
+
+async def test_cors_rejects_unknown_origin() -> None:
+    async with AsyncClient(
+        transport=ASGITransport(app=_cors_app()),
+        base_url="http://test",
+    ) as client:
+        response = await client.options(
             "/v1/models",
             headers={
                 "Origin": "https://attacker.test",
@@ -380,8 +421,7 @@ async def test_cors_allows_only_explicit_origin() -> None:
             },
         )
 
-    assert allowed.headers["access-control-allow-origin"] == "https://frontend.test"
-    assert "access-control-allow-origin" not in denied.headers
+    assert "access-control-allow-origin" not in response.headers
 
 
 async def test_demo_contains_streaming_client_without_backend_secrets() -> None:

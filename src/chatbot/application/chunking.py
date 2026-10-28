@@ -28,6 +28,7 @@ class TokenChunker:
         self._encoding = encoding
 
     def split(self, pages: Sequence[SourcePage]) -> tuple[DocumentChunk, ...]:
+        """Gera trechos determinísticos com id, hash e posição estáveis por página."""
         chunks: list[DocumentChunk] = []
         step = self._chunk_size - self._overlap
 

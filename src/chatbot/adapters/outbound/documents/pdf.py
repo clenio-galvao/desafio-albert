@@ -31,9 +31,11 @@ class PdfDirectorySource:
         self._directory = directory
 
     async def load(self) -> Sequence[SourcePage]:
+        """Lê os PDFs fora do event loop para não bloquear o servidor."""
         return await asyncio.to_thread(self._load_sync)
 
     def _load_sync(self) -> tuple[SourcePage, ...]:
+        """Extrai páginas com texto útil, na ordem lexicográfica dos arquivos."""
         if not self._directory.is_dir():
             raise FileNotFoundError(f"diretório de documentos não encontrado: {self._directory}")
 

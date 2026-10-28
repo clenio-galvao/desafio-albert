@@ -1,3 +1,5 @@
+from dataclasses import FrozenInstanceError
+
 import pytest
 
 from chatbot.adapters.outbound.documents import resolve_document_title
@@ -15,11 +17,14 @@ from chatbot.domain import ChatSession
 from ..fakes import FakeSessionRepository
 
 
-def test_model_catalog_normalizes_deduplicates_and_lists_models() -> None:
+def test_model_catalog_lists_normalized_unique_models() -> None:
     catalog = ModelCatalog([" model-a ", "model-b", "model-a", " "])
 
     assert catalog.execute() == ("model-a", "model-b")
-    catalog.ensure_supported("model-b")
+
+
+def test_model_catalog_accepts_supported_model() -> None:
+    ModelCatalog(["model-a", "model-b"]).ensure_supported("model-b")
 
 
 def test_model_catalog_rejects_empty_configuration() -> None:
@@ -70,16 +75,30 @@ async def test_readiness_service_translates_dependency_state(
     assert await ReadinessService(dependency).execute() is expected
 
 
-def test_application_data_contracts_are_immutable_values() -> None:
+def test_chat_request_is_immutable() -> None:
     request = ChatRequest(session_id="session", message="pergunta", model="model-a")
+
+    with pytest.raises(FrozenInstanceError):
+        request.message = "outra"  # type: ignore[misc]
+
+
+def test_chat_event_defaults_to_empty_citations() -> None:
     event = ChatEvent(type=ChatEventType.TOKEN, content="resposta")
-    page = SourcePage(source="apostila.pdf", title="Apostila", page=1, text="conteúdo")
+
+    assert event.citations == ()
+
+
+def test_ingestion_result_counts_add_up() -> None:
     result = IngestionResult(documents=1, chunks=2, embedded_chunks=1, skipped_chunks=1)
 
-    assert request.model == "model-a"
-    assert event.citations == ()
-    assert page.page == 1
     assert result.chunks == result.embedded_chunks + result.skipped_chunks
+
+
+def test_source_page_is_immutable() -> None:
+    page = SourcePage(source="apostila.pdf", title="Apostila", page=1, text="conteúdo")
+
+    with pytest.raises(FrozenInstanceError):
+        page.page = 2  # type: ignore[misc]
 
 
 @pytest.mark.parametrize(

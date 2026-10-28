@@ -10,6 +10,7 @@ from chatbot.domain.models import DocumentChunk, RetrievedChunk
 # O scroll do Qdrant ordena por ID (uuid5, sem relação com a ordem do texto), então
 # todos os chunks das páginas seguintes precisam ser lidos para achar o primeiro.
 _NEIGHBOR_SCAN_LIMIT = 64
+_HASH_SCROLL_BATCH = 256
 
 
 class QdrantVectorStore:
@@ -30,6 +31,7 @@ class QdrantVectorStore:
         )
 
     async def ensure_indexes(self) -> None:
+        """Cria índices de payload ausentes sem recriar a coleção."""
         if not await self._client.collection_exists(self._collection_name):
             return
         collection = await self._client.get_collection(self._collection_name)
@@ -50,12 +52,13 @@ class QdrantVectorStore:
             )
 
     async def existing_hashes(self, hashes: Sequence[str]) -> set[str]:
+        """Descobre hashes já indexados para a ingestão pular embeddings repetidos."""
         if not hashes or not await self._client.collection_exists(self._collection_name):
             return set()
 
         existing: set[str] = set()
-        for start in range(0, len(hashes), 256):
-            batch = list(hashes[start : start + 256])
+        for start in range(0, len(hashes), _HASH_SCROLL_BATCH):
+            batch = list(hashes[start : start + _HASH_SCROLL_BATCH])
             records, _ = await self._client.scroll(
                 collection_name=self._collection_name,
                 scroll_filter=models.Filter(
@@ -82,6 +85,7 @@ class QdrantVectorStore:
         chunks: Sequence[DocumentChunk],
         vectors: Sequence[Sequence[float]],
     ) -> None:
+        """Persiste trechos e vetores, criando a coleção na primeira escrita."""
         if len(chunks) != len(vectors):
             raise ValueError("chunks e vectors devem possuir o mesmo tamanho")
         if not chunks:
@@ -120,6 +124,7 @@ class QdrantVectorStore:
         limit: int,
         score_threshold: float,
     ) -> Sequence[RetrievedChunk]:
+        """Busca os vizinhos mais próximos e limita o score ao intervalo unitário."""
         if not await self._client.collection_exists(self._collection_name):
             return ()
 
@@ -141,9 +146,11 @@ class QdrantVectorStore:
         return tuple(results)
 
     async def close(self) -> None:
+        """Encerra o cliente HTTP do Qdrant."""
         await self._client.close()
 
     async def ready(self) -> bool:
+        """Confirma que a coleção configurada existe."""
         return await self._client.collection_exists(self._collection_name)
 
     async def pages_after(
@@ -151,6 +158,7 @@ class QdrantVectorStore:
         chunk: DocumentChunk,
         count: int,
     ) -> Sequence[DocumentChunk]:
+        """Devolve o primeiro trecho de cada página seguinte ao chunk âncora."""
         if count < 1:
             return ()
         records, _ = await self._client.scroll(
@@ -181,6 +189,7 @@ class QdrantVectorStore:
 
     @staticmethod
     def _payload_to_chunk(identifier: str, payload: dict[str, object]) -> DocumentChunk:
+        """Reconstrói o trecho de domínio a partir do payload persistido."""
         return DocumentChunk(
             id=identifier,
             text=str(payload["text"]),
@@ -192,6 +201,7 @@ class QdrantVectorStore:
         )
 
     async def _ensure_collection(self, dimension: int) -> None:
+        """Cria a coleção cosseno ou recusa dimensão incompatível com a existente."""
         if await self._client.collection_exists(self._collection_name):
             collection = await self._client.get_collection(self._collection_name)
             vectors = collection.config.params.vectors

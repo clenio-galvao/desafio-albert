@@ -9,6 +9,7 @@ from chatbot.config import Settings
 
 
 async def ingest() -> None:
+    """Executa a ingestão offline e imprime o resumo em JSON."""
     container = build_ingestion(Settings())
 
     try:

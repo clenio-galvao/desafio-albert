@@ -6,15 +6,7 @@ from chatbot.application.chunking import TokenChunker
 from chatbot.application.models import SourcePage
 from chatbot.application.use_cases import IngestionService
 
-from ..fakes import FakeDocumentSource, FakeEmbedding, FakeVectorStore
-
-
-class CharacterEncoding:
-    def encode(self, text: str) -> list[int]:
-        return [ord(character) for character in text]
-
-    def decode(self, tokens: Sequence[int]) -> str:
-        return "".join(chr(token) for token in tokens)
+from ..fakes import CharacterEncoding, FakeDocumentSource, FakeEmbedding, FakeVectorStore
 
 
 class EmptyDecoding:
@@ -33,23 +25,38 @@ def make_chunker(chunk_size: int, overlap: int) -> TokenChunker:
     )
 
 
-def test_chunker_is_deterministic_and_preserves_metadata() -> None:
-    chunker = make_chunker(chunk_size=4, overlap=1)
-    page = SourcePage(
+def _long_page() -> SourcePage:
+    return SourcePage(
         source="apostila.pdf",
         title="Apostila",
         page=2,
         text="saúde mental depende também de vínculos e cuidado contínuo",
     )
 
-    first = chunker.split([page])
-    second = chunker.split([page])
 
-    assert len(first) > 1
-    assert first == second
-    assert all(chunk.source == "apostila.pdf" and chunk.page == 2 for chunk in first)
-    assert len({chunk.id for chunk in first}) == len(first)
-    assert [chunk.position for chunk in first] == list(range(len(first)))
+def test_chunker_is_deterministic() -> None:
+    chunker = make_chunker(chunk_size=4, overlap=1)
+
+    assert chunker.split([_long_page()]) == chunker.split([_long_page()])
+
+
+def test_chunker_preserves_page_metadata() -> None:
+    chunks = make_chunker(chunk_size=4, overlap=1).split([_long_page()])
+
+    assert len(chunks) > 1
+    assert all(chunk.source == "apostila.pdf" and chunk.page == 2 for chunk in chunks)
+
+
+def test_chunker_assigns_unique_ids() -> None:
+    chunks = make_chunker(chunk_size=4, overlap=1).split([_long_page()])
+
+    assert len({chunk.id for chunk in chunks}) == len(chunks)
+
+
+def test_chunker_assigns_sequential_positions() -> None:
+    chunks = make_chunker(chunk_size=4, overlap=1).split([_long_page()])
+
+    assert [chunk.position for chunk in chunks] == list(range(len(chunks)))
 
 
 def test_chunker_restarts_position_on_each_page() -> None:

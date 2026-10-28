@@ -11,7 +11,7 @@ from chatbot.application.contextualization import RecentHistoryContextualizer
 from chatbot.application.prompting import GroundedPromptBuilder
 from chatbot.application.use_cases import GroundedChatService, ModelCatalog
 from chatbot.application.use_cases.answer_question import INSUFFICIENT_EVIDENCE_MESSAGE
-from chatbot.domain import DocumentChunk, Message, MessageRole, RetrievedChunk
+from chatbot.domain import DocumentChunk, RetrievedChunk
 
 from ..fakes import FakeLLM, FakeSessionRepository, FakeVectorStore
 
@@ -52,44 +52,22 @@ def make_service(
     return GroundedChatService(**options)  # type: ignore[arg-type]
 
 
-def test_contextualizer_uses_only_recent_history() -> None:
-    contextualizer = RecentHistoryContextualizer(max_history_messages=2)
-    history = [
-        Message(MessageRole.USER, "antiga"),
-        Message(MessageRole.ASSISTANT, "resposta recente"),
-        Message(MessageRole.USER, "pergunta recente"),
-    ]
-
-    query = contextualizer.contextualize("e agora?", history)
-
-    assert "antiga" not in query
-    assert "assistant: resposta recente" in query
-    assert query.endswith("Pergunta atual: e agora?")
-    assert RecentHistoryContextualizer(0).contextualize("direta", history) == "direta"
-    assert contextualizer.contextualize("direta", []) == "direta"
-    assert (
-        contextualizer.contextualize("O que é escuta terapêutica?", history)
-        == "O que é escuta terapêutica?"
-    )
-    assert "Contexto recente" in contextualizer.contextualize("Como funciona?", history)
-
-
-def test_contextualizer_rejects_negative_history_limit() -> None:
-    with pytest.raises(ValueError, match="max_history_messages"):
-        RecentHistoryContextualizer(-1)
-
-
-def test_grounded_chat_validates_configuration() -> None:
-    with pytest.raises(ValueError, match="max_session_messages"):
-        make_service(max_session_messages=1)
-    with pytest.raises(ValueError, match="retrieval_limit"):
-        make_service(retrieval_limit=0)
-    with pytest.raises(ValueError, match="score_threshold"):
-        make_service(score_threshold=-0.1)
-    with pytest.raises(ValueError, match="score_threshold"):
-        make_service(score_threshold=1.1)
-    with pytest.raises(ValueError, match="max_message_length"):
-        make_service(max_message_length=0)
+@pytest.mark.parametrize(
+    ("changes", "message"),
+    [
+        ({"max_session_messages": 1}, "max_session_messages"),
+        ({"retrieval_limit": 0}, "retrieval_limit"),
+        ({"score_threshold": -0.1}, "score_threshold"),
+        ({"score_threshold": 1.1}, "score_threshold"),
+        ({"max_message_length": 0}, "max_message_length"),
+    ],
+)
+def test_grounded_chat_rejects_invalid_configuration(
+    changes: dict[str, object],
+    message: str,
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        make_service(**changes)  # type: ignore[arg-type]
 
 
 def test_grounded_chat_preflight_rejects_long_message() -> None:
@@ -101,13 +79,13 @@ def test_grounded_chat_preflight_rejects_long_message() -> None:
         )
 
 
-async def test_grounded_chat_streams_answer_with_citations_and_saves_history() -> None:
-    llm = FakeLLM(("res", "posta"))
-    sessions = FakeSessionRepository()
-    service = make_service(llm=llm, sessions=sessions)
-    request = ChatRequest(session_id="session", message="Como cuidar?", model="model-a")
-
-    events = [event async for event in service.stream(request)]
+async def test_grounded_chat_streams_citations_then_tokens() -> None:
+    events = [
+        event
+        async for event in make_service(llm=FakeLLM(("res", "posta"))).stream(
+            ChatRequest(session_id="session", message="Como cuidar?", model="model-a")
+        )
+    ]
 
     assert [event.type for event in events] == [
         ChatEventType.METADATA,
@@ -117,26 +95,44 @@ async def test_grounded_chat_streams_answer_with_citations_and_saves_history() -
     ]
     assert events[0].citations[0].page == 7
     assert "".join(event.content or "" for event in events) == "resposta"
-    assert llm.models == ["model-a"]
-    assert '"source": "apostila.pdf"' in llm.messages[0][-1].content
+
+
+async def test_grounded_chat_saves_user_and_assistant_messages() -> None:
+    sessions = FakeSessionRepository()
+    service = make_service(llm=FakeLLM(("res", "posta")), sessions=sessions)
+
+    _ = [
+        event
+        async for event in service.stream(
+            ChatRequest(session_id="session", message="Como cuidar?", model="model-a")
+        )
+    ]
+
     assert [message.content for message in sessions.sessions["session"].messages] == [
         "Como cuidar?",
         "resposta",
     ]
 
 
-async def test_grounded_chat_refuses_without_evidence_and_skips_llm() -> None:
-    llm = FakeLLM()
-    sessions = FakeSessionRepository()
-    service = make_service(
-        llm=llm,
-        sessions=sessions,
-        retriever=FakeVectorStore(),
-    )
+async def test_grounded_chat_sends_selected_model_and_source_payload() -> None:
+    llm = FakeLLM(("res", "posta"))
+    service = make_service(llm=llm)
 
-    events = [
+    _ = [
         event
         async for event in service.stream(
+            ChatRequest(session_id="session", message="Como cuidar?", model="model-a")
+        )
+    ]
+
+    assert llm.models == ["model-a"]
+    assert '"source": "apostila.pdf"' in llm.messages[0][-1].content
+
+
+async def test_grounded_chat_refuses_without_evidence() -> None:
+    events = [
+        event
+        async for event in make_service(retriever=FakeVectorStore()).stream(
             ChatRequest(session_id="session", message="Sem resposta?", model="model-a")
         )
     ]
@@ -144,7 +140,33 @@ async def test_grounded_chat_refuses_without_evidence_and_skips_llm() -> None:
     assert events[0].citations == ()
     assert events[1].content == INSUFFICIENT_EVIDENCE_MESSAGE
     assert events[-1].type is ChatEventType.DONE
+
+
+async def test_grounded_chat_skips_llm_without_evidence() -> None:
+    llm = FakeLLM()
+    service = make_service(llm=llm, retriever=FakeVectorStore())
+
+    _ = [
+        event
+        async for event in service.stream(
+            ChatRequest(session_id="session", message="Sem resposta?", model="model-a")
+        )
+    ]
+
     assert llm.models == []
+
+
+async def test_grounded_chat_saves_refusal_in_session() -> None:
+    sessions = FakeSessionRepository()
+    service = make_service(sessions=sessions, retriever=FakeVectorStore())
+
+    _ = [
+        event
+        async for event in service.stream(
+            ChatRequest(session_id="session", message="Sem resposta?", model="model-a")
+        )
+    ]
+
     assert sessions.sessions["session"].messages[-1].content == INSUFFICIENT_EVIDENCE_MESSAGE
 
 

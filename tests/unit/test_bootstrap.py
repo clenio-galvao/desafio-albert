@@ -80,7 +80,19 @@ async def test_build_container_composes_real_adapters_without_network_calls() ->
     assert len(container.resources) == 3
     await container.close()
 
+
+async def test_build_ingestion_wires_pdf_pipeline_without_network_calls() -> None:
+    settings = Settings(
+        _env_file=None,
+        openai_base_url="https://gateway.test/v1",
+        openai_api_key="secret",
+        qdrant_url="https://qdrant.test",
+        qdrant_api_key="secret",
+        chat_models="model-a,model-b",
+    )
+
     ingestion = build_ingestion(settings)
+
     assert len(ingestion.resources) == 2
     await ingestion.close()
 

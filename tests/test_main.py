@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from httpx import ASGITransport, AsyncClient
 
 from chatbot.bootstrap import ApplicationContainer
-from chatbot.main import create_app, run
+from chatbot.main import create_app, run_server
 
 
 async def test_liveness_returns_ok() -> None:
@@ -32,9 +32,9 @@ async def test_openapi_exposes_service_metadata() -> None:
     }
 
 
-def test_run_starts_uvicorn() -> None:
+def test_run_server_starts_uvicorn() -> None:
     with patch("chatbot.main.uvicorn.run") as uvicorn_run:
-        run(reload=True)
+        run_server(reload=True)
 
     uvicorn_run.assert_called_once_with(
         "chatbot.main:app",

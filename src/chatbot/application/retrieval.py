@@ -30,6 +30,7 @@ class SemanticRetriever:
         limit: int,
         score_threshold: float,
     ) -> Sequence[RetrievedChunk]:
+        """Gera o embedding, busca vizinhos e anexa páginas seguintes sem duplicar ids."""
         vectors = await self._embedding.embed([query])
         if len(vectors) != 1:
             raise RuntimeError("o provedor deve retornar exatamente um embedding para a consulta")
@@ -39,7 +40,7 @@ class SemanticRetriever:
             limit=limit,
             score_threshold=score_threshold,
         )
-        neighbors_by_result = await self._neighbors(base_results)
+        neighbors_by_result = await self._expand_neighbors(base_results)
 
         results: list[RetrievedChunk] = []
         seen_ids: set[str] = set()
@@ -55,10 +56,11 @@ class SemanticRetriever:
                 seen_ids.add(chunk.id)
         return tuple(results)
 
-    async def _neighbors(
+    async def _expand_neighbors(
         self,
         base_results: Sequence[RetrievedChunk],
     ) -> Sequence[Sequence[DocumentChunk]]:
+        """Expande cada resultado em paralelo quando a janela de páginas está ativa."""
         if self._following_pages == 0:
             return [() for _ in base_results]
         return await asyncio.gather(

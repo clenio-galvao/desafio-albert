@@ -33,7 +33,7 @@ dev = [
 ]
 
 [project.scripts]
-chatbot-api = "chatbot.main:run"
+chatbot-api = "chatbot.main:run_server"
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -67,7 +67,7 @@ line-length = 100
 src = ["src", "tests"]
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B", "SIM", "ASYNC"]
+select = ["E", "F", "I", "UP", "B", "SIM", "ASYNC", "PLC0415"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["chatbot"]

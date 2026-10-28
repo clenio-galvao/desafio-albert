@@ -32,6 +32,7 @@ class GroundedPromptBuilder:
         messages: Sequence[Message],
         context: Sequence[DocumentChunk],
     ) -> tuple[PromptMessage, ...]:
+        """Separa regras do sistema, histórico e fontes não confiáveis no prompt final."""
         if not messages or messages[-1].role is not MessageRole.USER:
             raise ValueError("a última mensagem deve ser do usuário")
 

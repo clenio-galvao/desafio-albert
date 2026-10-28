@@ -35,6 +35,9 @@ def test_rag_evaluation_dataset_covers_core_scenarios() -> None:
         for case in cases
         if case["answerable"]
     )
+
+
+def test_evaluation_and_load_scripts_exist() -> None:
     assert Path("scripts/evaluate_rag.py").is_file()
     assert Path("scripts/load_test.py").is_file()
 
@@ -45,6 +48,15 @@ def test_documentation_links_architecture_decisions_and_demo_guide() -> None:
 
     assert "[docs/adr](docs/adr/README.md)" in readme
     assert "[docs/DEMO.md](docs/DEMO.md)" in readme
+    assert ".cursor/rules/clean-code-python.mdc" in readme
+    assert ".cursor/rules/nomenclatura.mdc" in readme
+    assert ".cursor/rules/pytest-um-comportamento.mdc" in readme
+    for rule in (
+        "clean-code-python.mdc",
+        "nomenclatura.mdc",
+        "pytest-um-comportamento.mdc",
+    ):
+        assert Path(".cursor/rules", rule).is_file()
     assert "Uso de IA no desenvolvimento" in readme
     assert "python scripts/load_test.py" in readme
     assert "Troubleshooting" in Path("docs/DEMO.md").read_text(encoding="utf-8")

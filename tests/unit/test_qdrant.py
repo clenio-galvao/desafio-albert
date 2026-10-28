@@ -33,23 +33,32 @@ def make_store() -> tuple[QdrantVectorStore, AsyncMock]:
     return store, client
 
 
-async def test_existing_hashes_short_circuits_empty_or_missing_collection() -> None:
+async def test_existing_hashes_returns_empty_for_empty_input() -> None:
     store, client = make_store()
 
     assert await store.existing_hashes([]) == set()
     client.collection_exists.assert_not_awaited()
 
+
+async def test_existing_hashes_skips_scroll_when_collection_is_missing() -> None:
+    store, client = make_store()
     client.collection_exists.return_value = False
+
     assert await store.existing_hashes(["hash"]) == set()
     client.scroll.assert_not_awaited()
 
 
-async def test_ensure_indexes_skips_missing_collection_and_creates_missing_fields() -> None:
+async def test_ensure_indexes_skips_missing_collection() -> None:
     store, client = make_store()
     client.collection_exists.return_value = False
+
     await store.ensure_indexes()
+
     client.get_collection.assert_not_awaited()
 
+
+async def test_ensure_indexes_creates_missing_page_field() -> None:
+    store, client = make_store()
     client.collection_exists.return_value = True
     client.get_collection.return_value = SimpleNamespace(
         payload_schema={
@@ -57,6 +66,7 @@ async def test_ensure_indexes_skips_missing_collection_and_creates_missing_field
             "source": object(),
         }
     )
+
     await store.ensure_indexes()
 
     client.create_payload_index.assert_awaited_once()
@@ -100,20 +110,34 @@ async def test_upsert_creates_collection_and_writes_payload() -> None:
     assert upsert_call["points"][0].payload["title"] == "Apostila"
 
 
-async def test_upsert_validates_input_shapes_and_empty_input() -> None:
-    store, client = make_store()
-    chunk = make_chunk()
+async def test_upsert_rejects_mismatched_vector_count() -> None:
+    store, _client = make_store()
 
     with pytest.raises(ValueError, match="mesmo tamanho"):
-        await store.upsert([chunk], [])
+        await store.upsert([make_chunk()], [])
+
+
+async def test_upsert_skips_empty_input() -> None:
+    store, client = make_store()
+
     await store.upsert([], [])
+
     client.collection_exists.assert_not_awaited()
 
+
+async def test_upsert_rejects_empty_vector() -> None:
+    store, _client = make_store()
+
     with pytest.raises(ValueError, match="mesma dimensão"):
-        await store.upsert([chunk], [[]])
+        await store.upsert([make_chunk()], [[]])
+
+
+async def test_upsert_rejects_vectors_with_different_dimensions() -> None:
+    store, _client = make_store()
+
     with pytest.raises(ValueError, match="mesma dimensão"):
         await store.upsert(
-            [chunk, make_chunk("00000000-0000-0000-0000-000000000002")],
+            [make_chunk(), make_chunk("00000000-0000-0000-0000-000000000002")],
             [[1.0], [1.0, 2.0]],
         )
 

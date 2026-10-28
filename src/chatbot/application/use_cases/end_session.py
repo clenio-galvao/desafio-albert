@@ -10,4 +10,5 @@ class EndSessionService:
         self._sessions = sessions
 
     async def execute(self, session_id: str) -> bool:
+        """Apaga o histórico e informa se a sessão existia."""
         return await self._sessions.delete(session_id)

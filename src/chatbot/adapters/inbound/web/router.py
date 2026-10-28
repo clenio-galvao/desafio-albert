@@ -10,5 +10,6 @@ DEMO_HTML = files("chatbot.adapters.inbound.web").joinpath("demo.html").read_tex
 
 
 @router.get("/demo", response_class=HTMLResponse)
-async def demo() -> HTMLResponse:
+async def render_demo_page() -> HTMLResponse:
+    """Serve o cliente mínimo de chat sem interpolar segredos do backend."""
     return HTMLResponse(DEMO_HTML)

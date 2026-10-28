@@ -20,6 +20,7 @@ class MessageRole(StrEnum):
 
 
 def _required_text(value: str, field_name: str) -> str:
+    """Remove espaços e recusa campos que ficariam vazios após a normalização."""
     normalized = value.strip()
     if not normalized:
         raise EmptyContentError(f"{field_name} não pode ser vazio")
@@ -35,6 +36,7 @@ class Message:
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     def __post_init__(self) -> None:
+        """Garante conteúdo útil sem alterar o restante da mensagem."""
         object.__setattr__(self, "content", _required_text(self.content, "content"))
 
 
@@ -48,6 +50,7 @@ class Citation:
     chunk_id: str
 
     def __post_init__(self) -> None:
+        """Normaliza identificadores e recusa página menor que 1."""
         object.__setattr__(self, "source", _required_text(self.source, "source"))
         object.__setattr__(self, "title", _required_text(self.title, "title"))
         object.__setattr__(self, "chunk_id", _required_text(self.chunk_id, "chunk_id"))
@@ -68,6 +71,7 @@ class DocumentChunk:
     position: int = 0
 
     def __post_init__(self) -> None:
+        """Normaliza texto rastreável e valida página e posição na página."""
         for name in ("id", "text", "source", "title", "content_hash"):
             object.__setattr__(self, name, _required_text(getattr(self, name), name))
         if self.page < 1:
@@ -75,7 +79,8 @@ class DocumentChunk:
         if self.position < 0:
             raise InvalidChunkPositionError("position não pode ser negativa")
 
-    def citation(self) -> Citation:
+    def as_citation(self) -> Citation:
+        """Produz a referência pública usada na resposta do chat."""
         return Citation(
             source=self.source,
             title=self.title,
@@ -92,6 +97,7 @@ class RetrievedChunk:
     score: float
 
     def __post_init__(self) -> None:
+        """Mantém o score de similaridade no intervalo unitário."""
         if not 0 <= self.score <= 1:
             raise ValueError("score deve estar entre 0 e 1")
 
@@ -106,6 +112,7 @@ class ChatSession:
     updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     def __post_init__(self) -> None:
+        """Valida identificador, teto de mensagens e histórico inicial."""
         self.id = _required_text(self.id, "id")
         if self.max_messages < 2:
             raise ValueError("max_messages deve ser maior ou igual a 2")
@@ -120,7 +127,7 @@ class ChatSession:
             del self.messages[:overflow]
         self.updated_at = datetime.now(UTC)
 
-    def recent(self, limit: int) -> tuple[Message, ...]:
+    def recent_messages(self, limit: int) -> tuple[Message, ...]:
         """Retorna uma cópia imutável dos últimos turnos."""
         if limit < 1:
             raise ValueError("limit deve ser maior ou igual a 1")

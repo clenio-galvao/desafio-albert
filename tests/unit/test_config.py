@@ -26,10 +26,20 @@ def test_settings_parse_and_deduplicate_models() -> None:
         "https://app.test",
         "https://admin.test",
     )
+
+
+def test_settings_keep_secret_values_out_of_plain_fields() -> None:
+    settings = make_settings()
+
+    assert settings.openai_api_key.get_secret_value() == "secret"
+
+
+def test_settings_default_retrieval_values() -> None:
+    settings = make_settings()
+
     assert settings.retrieval_top_k == 3
     assert settings.retrieval_score_threshold == 0.35
     assert settings.retrieval_following_pages == 1
-    assert settings.openai_api_key.get_secret_value() == "secret"
 
 
 def test_settings_reject_empty_model_list() -> None:

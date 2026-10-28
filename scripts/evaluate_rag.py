@@ -33,7 +33,8 @@ class EvaluationDataset(BaseModel):
     cases: list[EvaluationCase]
 
 
-def _events(response: httpx.Response) -> Iterator[tuple[str, dict[str, Any]]]:
+def _parse_sse_events(response: httpx.Response) -> Iterator[tuple[str, dict[str, Any]]]:
+    """Interpreta o fluxo SSE da API em pares evento/payload."""
     event_name = "message"
     data_lines: list[str] = []
     for line in response.iter_lines():
@@ -52,13 +53,14 @@ def _events(response: httpx.Response) -> Iterator[tuple[str, dict[str, Any]]]:
         data_lines = []
 
 
-def _ask(
+def _stream_question(
     client: httpx.Client,
     *,
     session_id: str,
     question: str,
     model: str,
 ) -> tuple[str, tuple[ObservedCitation, ...]]:
+    """Envia uma pergunta e devolve texto concatenado com as citações observadas."""
     tokens: list[str] = []
     citations: list[ObservedCitation] = []
     with client.stream(
@@ -67,7 +69,7 @@ def _ask(
         json={"session_id": session_id, "message": question, "model": model},
     ) as response:
         response.raise_for_status()
-        for event, payload in _events(response):
+        for event, payload in _parse_sse_events(response):
             if event == "token" and isinstance(payload.get("content"), str):
                 tokens.append(payload["content"])
             elif event == "metadata" and isinstance(payload.get("citations"), list):
@@ -86,10 +88,12 @@ def _ask(
 
 
 def _load_dataset(path: Path) -> EvaluationDataset:
+    """Lê o dataset versionado usado pela avaliação real."""
     return EvaluationDataset.model_validate_json(path.read_text(encoding="utf-8"))
 
 
 def main() -> int:
+    """Percorre o dataset contra a API viva somente com `--confirm-live`."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--base-url", default="http://localhost:8000")
     parser.add_argument("--model", default="azure/gpt-5-mini")
@@ -113,13 +117,13 @@ def main() -> int:
         for case in dataset.cases:
             session_id = f"eval-{case.id}-{uuid4()}"
             for setup_question in case.setup_questions:
-                _ask(
+                _stream_question(
                     client,
                     session_id=session_id,
                     question=setup_question,
                     model=args.model,
                 )
-            answer, citations = _ask(
+            answer, citations = _stream_question(
                 client,
                 session_id=session_id,
                 question=case.question,

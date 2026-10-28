@@ -60,9 +60,10 @@ class GroundedChatService:
             )
 
     async def stream(self, request: ChatRequest) -> AsyncGenerator[ChatEvent, None]:
+        """Recupera evidências, gera a resposta em tokens e grava o turno só ao concluir."""
         self.validate(request)
         user_message = Message(role=MessageRole.USER, content=request.message)
-        session = await self._session_copy(request.session_id)
+        session = await self._copy_session(request.session_id)
         retrieval_query = self._contextualizer.contextualize(
             user_message.content,
             session.messages,
@@ -74,7 +75,7 @@ class GroundedChatService:
         )
         session.add(user_message)
 
-        citations = tuple(item.chunk.citation() for item in retrieved)
+        citations = tuple(item.chunk.as_citation() for item in retrieved)
         yield ChatEvent(type=ChatEventType.METADATA, citations=citations)
 
         if not retrieved:
@@ -91,7 +92,7 @@ class GroundedChatService:
 
         response_parts: list[str] = []
         prompt = self._prompt_builder.build(
-            session.recent(self._max_session_messages),
+            session.recent_messages(self._max_session_messages),
             [item.chunk for item in retrieved],
         )
         async for token in self._llm.stream(
@@ -110,7 +111,8 @@ class GroundedChatService:
         await self._sessions.save(session)
         yield ChatEvent(type=ChatEventType.DONE)
 
-    async def _session_copy(self, session_id: str) -> ChatSession:
+    async def _copy_session(self, session_id: str) -> ChatSession:
+        """Trabalha sobre uma cópia isolada para não vazar estado entre turnos."""
         existing = await self._sessions.get(session_id)
         if existing is None:
             return ChatSession(id=session_id, max_messages=self._max_session_messages)

@@ -14,10 +14,13 @@ from httpx import AsyncClient, Timeout
 LIVE_REQUEST_CAP = 5
 DEFAULT_MODEL = "azure/gpt-5-mini"
 DEFAULT_MESSAGE = "O que é escuta terapêutica?"
+_MAX_ERROR_BODY_CHARS = 200
 
 
 @dataclass(frozen=True, slots=True)
 class StreamSample:
+    """Resultado de um único stream SSE medido pelo cliente de carga."""
+
     status_code: int
     time_to_first_token_ms: float | None
     duration_ms: float
@@ -27,6 +30,8 @@ class StreamSample:
 
 @dataclass(frozen=True, slots=True)
 class LoadReport:
+    """Agrega amostras de carga em razões, contagens e percentis."""
+
     target: str
     users: int
     requests: int
@@ -34,12 +39,14 @@ class LoadReport:
 
     @property
     def completed_ratio(self) -> float:
+        """Fração de streams que receberam o evento `done`."""
         if not self.samples:
             return 0.0
         return sum(sample.completed for sample in self.samples) / len(self.samples)
 
     @property
     def error_ratio(self) -> float:
+        """Fração de streams com HTTP de erro, evento `error` ou sem `done`."""
         if not self.samples:
             return 0.0
         errors = sum(
@@ -51,25 +58,29 @@ class LoadReport:
 
     @property
     def status_counts(self) -> dict[int, int]:
+        """Conta códigos HTTP observados, ordenados pelo status."""
         counts: dict[int, int] = {}
         for sample in self.samples:
             counts[sample.status_code] = counts.get(sample.status_code, 0) + 1
         return dict(sorted(counts.items()))
 
-    def ttfb_percentile(self, q: float) -> float | None:
+    def ttfb_percentile(self, percent: float) -> float | None:
+        """Percentil do tempo até o primeiro token, ignorando streams sem token."""
         return percentile(
             [
                 sample.time_to_first_token_ms
                 for sample in self.samples
                 if sample.time_to_first_token_ms is not None
             ],
-            q,
+            percent,
         )
 
-    def duration_percentile(self, q: float) -> float | None:
-        return percentile([sample.duration_ms for sample in self.samples], q)
+    def duration_percentile(self, percent: float) -> float | None:
+        """Percentil da duração total de cada stream."""
+        return percentile([sample.duration_ms for sample in self.samples], percent)
 
-    def to_dict(self) -> dict[str, object]:
+    def as_dict(self) -> dict[str, object]:
+        """Serializa o relatório no formato impresso pelo script de carga."""
         return {
             "target": self.target,
             "users": self.users,
@@ -88,15 +99,16 @@ class LoadReport:
         }
 
 
-def percentile(values: Sequence[float], q: float) -> float | None:
+def percentile(values: Sequence[float], percent: float) -> float | None:
+    """Interpola o percentil informado ou devolve None quando não há amostras."""
     if not values:
         return None
-    if not 0 <= q <= 100:
+    if not 0 <= percent <= 100:
         raise ValueError("percentil deve estar entre 0 e 100")
     ordered = sorted(values)
     if len(ordered) == 1:
         return ordered[0]
-    rank = (len(ordered) - 1) * (q / 100)
+    rank = (len(ordered) - 1) * (percent / 100)
     low = math.floor(rank)
     high = math.ceil(rank)
     if low == high:
@@ -106,11 +118,13 @@ def percentile(values: Sequence[float], q: float) -> float | None:
 
 
 def is_local_target(target: str) -> bool:
+    """Identifica hosts de loopback para não aplicar o teto da cota publicada."""
     host = urlparse(target).hostname or target
     return host in {"127.0.0.1", "localhost", "::1"}
 
 
 def resolve_request_budget(*, target: str, requests: int, live: bool) -> int:
+    """Limita o volume remoto para não esgotar a cota do gateway."""
     if requests < 1:
         raise ValueError("requests deve ser maior que zero")
     remote = live or not is_local_target(target)
@@ -128,6 +142,7 @@ async def collect_stream(
     model: str,
     message: str,
 ) -> StreamSample:
+    """Mede um POST `/v1/chat/stream` até `done`, erro HTTP ou falha de transporte."""
     started = time.perf_counter()
     first_token_at: float | None = None
     completed = False
@@ -142,7 +157,7 @@ async def collect_stream(
             status_code = response.status_code
             if status_code >= 400:
                 body = (await response.aread()).decode("utf-8", errors="replace")
-                error = body[:200] or f"HTTP {status_code}"
+                error = body[:_MAX_ERROR_BODY_CHARS] or f"HTTP {status_code}"
             else:
                 async for line in response.aiter_lines():
                     if first_token_at is None and line.startswith("event: token"):
@@ -175,11 +190,13 @@ async def run_load(
     model: str = DEFAULT_MODEL,
     message: str = DEFAULT_MESSAGE,
 ) -> LoadReport:
+    """Dispara streams concorrentes limitados pelo número de usuários simultâneos."""
     if users < 1:
         raise ValueError("users deve ser maior que zero")
     limiter = asyncio.Semaphore(users)
 
-    async def one(index: int) -> StreamSample:
+    async def collect_one_stream(index: int) -> StreamSample:
+        """Executa um stream isolado respeitando o semáforo de usuários."""
         async with limiter:
             return await collect_stream(
                 client,
@@ -188,7 +205,9 @@ async def run_load(
                 message=message,
             )
 
-    samples = await asyncio.gather(*(one(index) for index in range(requests)))
+    samples = await asyncio.gather(
+        *(collect_one_stream(index) for index in range(requests))
+    )
     return LoadReport(
         target=target,
         users=users,
@@ -197,11 +216,13 @@ async def run_load(
     )
 
 
-def client_timeout(seconds: float = 60.0) -> Timeout:
+def build_client_timeout(seconds: float = 60.0) -> Timeout:
+    """Timeout HTTP único para conexão, leitura e pool do cliente de carga."""
     return Timeout(seconds)
 
 
 def _round_ms(value: float | None) -> float | None:
+    """Arredonda milissegundos para o relatório JSON, preservando ausência."""
     if value is None:
         return None
     return round(value, 2)

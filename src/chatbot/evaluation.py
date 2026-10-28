@@ -24,7 +24,8 @@ class EvaluationScore:
     passed: bool
 
 
-def _normalize(value: str) -> str:
+def _normalize_text(value: str) -> str:
+    """Remove caixa, acentos e espaços extras para comparar textos."""
     decomposed = unicodedata.normalize("NFKD", value.casefold())
     without_accents = "".join(char for char in decomposed if not unicodedata.combining(char))
     return " ".join(without_accents.split())
@@ -41,7 +42,7 @@ def evaluate_answer(
     minimum_concept_coverage: float = 0.5,
 ) -> EvaluationScore:
     """Avalia recuperação, citação, conceitos essenciais e recusa."""
-    normalized_answer = _normalize(answer)
+    normalized_answer = _normalize_text(answer)
     refusal_markers = (
         "nao encontrei informacao suficiente",
         "nao ha informacao suficiente",
@@ -64,9 +65,9 @@ def evaluate_answer(
     if not 0 <= minimum_concept_coverage <= 1:
         raise ValueError("minimum_concept_coverage deve estar entre zero e um")
 
-    normalized_title = _normalize(expected_title)
+    normalized_title = _normalize_text(expected_title)
     retrieval_hit = any(
-        _normalize(citation.title) == normalized_title
+        _normalize_text(citation.title) == normalized_title
         and citation.page in expected_pages
         for citation in citations
     )
@@ -75,7 +76,7 @@ def evaluate_answer(
         for page in expected_pages
     )
     matched_concepts = sum(
-        any(_normalize(alternative) in normalized_answer for alternative in alternatives)
+        any(_normalize_text(alternative) in normalized_answer for alternative in alternatives)
         for alternatives in required_concepts
     )
     concept_coverage = (

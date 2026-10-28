@@ -8,7 +8,8 @@ from time import monotonic
 from chatbot.domain.models import ChatSession
 
 
-def _copy(session: ChatSession) -> ChatSession:
+def _copy_session(session: ChatSession) -> ChatSession:
+    """Isola a sessão armazenada das mutações feitas pelo chamador."""
     return ChatSession(
         id=session.id,
         max_messages=session.max_messages,
@@ -39,16 +40,18 @@ class InMemorySessionRepository:
         self._lock = asyncio.Lock()
 
     async def get(self, session_id: str) -> ChatSession | None:
+        """Devolve uma cópia da sessão vigente ou None se expirou ou não existe."""
         async with self._lock:
             self._evict_expired()
             stored = self._sessions.get(session_id)
-            return None if stored is None else _copy(stored[0])
+            return None if stored is None else _copy_session(stored[0])
 
     async def save(self, session: ChatSession) -> None:
+        """Renova o TTL, isola o estado e expulsa a sessão menos recente se necessário."""
         async with self._lock:
             self._evict_expired()
             self._sessions[session.id] = (
-                _copy(session),
+                _copy_session(session),
                 self._clock() + self._ttl_seconds,
             )
             self._sessions.move_to_end(session.id)
@@ -56,10 +59,12 @@ class InMemorySessionRepository:
                 self._sessions.popitem(last=False)
 
     async def delete(self, session_id: str) -> bool:
+        """Remove a sessão e informa se ela estava armazenada."""
         async with self._lock:
             return self._sessions.pop(session_id, None) is not None
 
     def _evict_expired(self) -> None:
+        """Descarta prefixo expirado; a ordem de salvamento coincide com a expiração."""
         now = self._clock()
         while self._sessions:
             oldest_id, (_, expires_at) = next(iter(self._sessions.items()))

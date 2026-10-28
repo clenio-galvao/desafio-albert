@@ -1,4 +1,3 @@
-from collections.abc import Sequence
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
@@ -9,15 +8,7 @@ from chatbot.application.chunking import TokenChunker
 from chatbot.application.models import SourcePage
 from chatbot.application.use_cases import IngestionService
 
-from ..fakes import FakeDocumentSource, FakeEmbedding
-
-
-class CharacterEncoding:
-    def encode(self, text: str) -> list[int]:
-        return [ord(character) for character in text]
-
-    def decode(self, tokens: Sequence[int]) -> str:
-        return "".join(chr(token) for token in tokens)
+from ..fakes import CharacterEncoding, FakeDocumentSource, FakeEmbedding
 
 
 async def test_reingestion_skips_embeddings_through_qdrant_adapter() -> None:

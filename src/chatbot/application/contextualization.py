@@ -27,6 +27,7 @@ class RecentHistoryContextualizer:
         self._max_history_messages = max_history_messages
 
     def contextualize(self, question: str, history: Sequence[Message]) -> str:
+        """Anexa histórico recente só quando a pergunta depende do contexto."""
         if self._max_history_messages == 0 or not history:
             return question
         normalized = " ".join(question.split())

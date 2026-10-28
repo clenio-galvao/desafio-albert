@@ -1,0 +1,39 @@
+---
+description: Um comportamento por teste pytest
+globs: tests/**/*.py
+alwaysApply: false
+---
+
+# Testes
+
+Cada teste prova **um** comportamento. Se o nome precisa de `e`/`and`,
+divida ou use `@pytest.mark.parametrize` com um caso por linha.
+
+```python
+# ❌
+def test_percentile_interpolates_and_rejects_invalid_values() -> None:
+    assert percentile([], 50) is None
+    assert percentile([10.0], 95) == 10.0
+    with pytest.raises(ValueError):
+        percentile([1.0], 120)
+
+# ✅
+def test_percentile_returns_none_for_empty_values() -> None:
+    assert percentile([], 50) is None
+
+def test_percentile_rejects_out_of_range() -> None:
+    with pytest.raises(ValueError, match="percentil"):
+        percentile([1.0], 120)
+```
+
+Arrange / Act / Assert visíveis. Um `act` por teste. Vários `assert` só
+quando descrevem o **mesmo** resultado (ex.: um evento SSE).
+
+Não coloque o teste no arquivo do adapter se o sujeito for um caso de
+uso (`GroundedPromptBuilder` não vive em `test_chat_adapter`).
+
+Fakes compartilhados ficam em `tests/fakes.py`. Dublês de um único
+arquivo permanecem locais.
+
+Testes são offline: sem rede, gateway ou Qdrant reais. Sem `time.sleep`
+para provar atraso — intercepte a dependência.

@@ -15,8 +15,10 @@ class ModelCatalog:
         self._models = normalized
 
     def execute(self) -> tuple[str, ...]:
+        """Lista os modelos normalizados na ordem de configuração."""
         return self._models
 
     def ensure_supported(self, model: str) -> None:
+        """Recusa nomes fora da allowlist antes de qualquer chamada externa."""
         if model not in self._models:
             raise UnsupportedModelError(f"modelo não permitido: {model}")

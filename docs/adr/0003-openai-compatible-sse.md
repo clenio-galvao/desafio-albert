@@ -25,5 +25,15 @@ são eventos SSE seguros.
 - SSE funciona com HTTP comum e é fácil de observar com `curl -N`.
 - O fluxo é unidirecional; necessidades bidirecionais futuras poderiam exigir
   WebSocket.
+- SSE corre sobre TCP: pacote IP perdido é retransmitido e reordenado. O que
+  aparece como perda no frontend é queda de conexão, timeout de proxy ou
+  bufferização, não um token isolado faltando.
+- A API desliga cache e buffering (`Cache-Control: no-cache`,
+  `X-Accel-Buffering: no`) e encerra a geração se o cliente desconectar.
+  Sem `done`, a sessão não grava a resposta parcial; o cliente pode
+  reenviar a pergunta.
+- `EventSource` nativo não se aplica ao `POST` atual. Retomada de tokens
+  já gerados exigiria `id` de evento, buffer no servidor e um `GET` com
+  `Last-Event-ID`. WebSocket não elimina essa necessidade: também é TCP.
 - Particularidades não padronizadas de um provedor podem exigir extensão do
   adapter.

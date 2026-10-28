@@ -30,6 +30,7 @@ class OpenAIEmbeddingAdapter:
         )
 
     async def embed(self, texts: Sequence[str]) -> list[list[float]]:
+        """Gera vetores em lotes e restaura a ordem original das entradas."""
         vectors: list[list[float]] = []
         for start in range(0, len(texts), self._batch_size):
             batch = list(texts[start : start + self._batch_size])
@@ -41,4 +42,5 @@ class OpenAIEmbeddingAdapter:
         return vectors
 
     async def close(self) -> None:
+        """Encerra o cliente HTTP do gateway de embeddings."""
         await self._client.close()

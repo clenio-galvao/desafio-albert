@@ -25,13 +25,26 @@ def test_memory_repository_validates_configuration(
         InMemorySessionRepository(ttl_seconds=ttl_seconds, max_sessions=max_sessions)
 
 
-async def test_memory_repository_saves_gets_and_deletes_session() -> None:
+async def test_memory_repository_returns_none_for_missing_session() -> None:
+    repository = InMemorySessionRepository(ttl_seconds=10)
+
+    assert await repository.get("missing") is None
+
+
+async def test_memory_repository_saves_and_returns_session() -> None:
     repository = InMemorySessionRepository(ttl_seconds=10)
     session = ChatSession(id="session", max_messages=2)
 
-    assert await repository.get("missing") is None
     await repository.save(session)
+
     assert await repository.get("session") == session
+
+
+async def test_memory_repository_delete_is_idempotent() -> None:
+    repository = InMemorySessionRepository(ttl_seconds=10)
+    session = ChatSession(id="session", max_messages=2)
+    await repository.save(session)
+
     assert await repository.delete("session") is True
     assert await repository.delete("session") is False
 

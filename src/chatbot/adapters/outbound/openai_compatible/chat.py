@@ -33,6 +33,7 @@ class OpenAIChatAdapter:
         model: str,
         messages: Sequence[PromptMessage],
     ) -> AsyncIterator[str]:
+        """Encaminha o prompt ao gateway e emite somente deltas com conteúdo."""
         request_messages = [
             cast(
                 ChatCompletionMessageParam,
@@ -50,4 +51,5 @@ class OpenAIChatAdapter:
                 yield content
 
     async def close(self) -> None:
+        """Encerra o cliente HTTP do gateway de chat."""
         await self._client.close()

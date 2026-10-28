@@ -1,0 +1,31 @@
+---
+description: Nomes de funções, métodos e parâmetros
+alwaysApply: true
+---
+
+# Nomenclatura
+
+Funções e métodos são **verbos** (`search`, `encode_sse`, `require_container`).
+Propriedades e valores são **substantivos** (`active`, `allowed_chat_models`).
+Conversão usa `as_` (`as_citation`, `as_dict`). Fábricas usam `build_`
+(`build_container`, `build_client_timeout`). Booleanos usam `is_`/`has_`/`can_`.
+
+```python
+# ❌
+def one(index: int) -> StreamSample: ...
+def events() -> AsyncIterator[str]: ...
+def citation(self) -> Citation: ...
+
+# ✅
+async def collect_one_stream(index: int) -> StreamSample: ...
+async def encode_sse_events() -> AsyncIterator[str]: ...
+def as_citation(self) -> Citation: ...
+```
+
+Casos de uso de disparo único expõem `execute`; o chat usa `validate` e
+`stream` porque o canal permanece aberto. Adapters repetem o verbo da porta
+(`search`, `query`, `embed`). Helpers privados repetem o objeto
+(`_copy_session`, `_parse_sse_events`), não `_copy` / `_events`.
+
+Parâmetros descrevem o valor (`percent`, não `q`; `session_id`, não `id`
+quando o tipo não basta). Não misture português e inglês no mesmo nome.

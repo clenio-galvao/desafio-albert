@@ -43,13 +43,17 @@ async def test_pdf_source_loads_files_in_order_and_ignores_empty_pages(tmp_path:
     ]
 
 
-async def test_pdf_source_rejects_missing_empty_or_unreadable_directory(tmp_path: Path) -> None:
+async def test_pdf_source_rejects_missing_directory(tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError, match="diretório"):
         await PdfDirectorySource(tmp_path / "missing").load()
 
+
+async def test_pdf_source_rejects_directory_without_pdfs(tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError, match="nenhum PDF"):
         await PdfDirectorySource(tmp_path).load()
 
+
+async def test_pdf_source_rejects_pdfs_without_extractable_text(tmp_path: Path) -> None:
     (tmp_path / "empty.pdf").touch()
     reader = SimpleNamespace(pages=[SimpleNamespace(extract_text=lambda: " ")])
     with (

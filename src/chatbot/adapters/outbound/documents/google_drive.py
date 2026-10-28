@@ -16,9 +16,11 @@ class GoogleDriveFolderDownloader:
         self._output_directory = output_directory
 
     async def download(self) -> tuple[Path, ...]:
+        """Executa o download em thread para não bloquear o event loop."""
         return await asyncio.to_thread(self._download_sync)
 
     def _download_sync(self) -> tuple[Path, ...]:
+        """Baixa a pasta e devolve somente os PDFs, em ordem estável."""
         self._output_directory.mkdir(parents=True, exist_ok=True)
         downloaded = gdown.download_folder(
             url=self._folder_url,

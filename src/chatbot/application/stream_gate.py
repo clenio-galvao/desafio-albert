@@ -7,9 +7,11 @@ class UnlimitedStreamGate:
     """Permite qualquer quantidade de streams; usado em testes isolados."""
 
     async def try_acquire(self) -> bool:
+        """Sempre admite o stream, para testes sem teto de concorrência."""
         return True
 
     async def release(self) -> None:
+        """Não altera estado; existe para honrar o contrato da porta."""
         return None
 
 
@@ -25,9 +27,11 @@ class ConcurrentStreamGate:
 
     @property
     def active(self) -> int:
+        """Quantidade de streams atualmente admitidos."""
         return self._active
 
     async def try_acquire(self) -> bool:
+        """Reserva uma vaga se o limite ainda não foi atingido."""
         async with self._lock:
             if self._active >= self._limit:
                 return False
@@ -35,6 +39,7 @@ class ConcurrentStreamGate:
             return True
 
     async def release(self) -> None:
+        """Devolve uma vaga sem deixar o contador negativo."""
         async with self._lock:
             if self._active:
                 self._active -= 1
