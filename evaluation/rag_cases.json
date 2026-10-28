@@ -1,0 +1,74 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "id": "escuta-terapeutica",
+      "question": "O que é escuta terapêutica?",
+      "setup_questions": [],
+      "answerable": true,
+      "expected_title": "O sujeito, a Integralidade e a Saúde Mental",
+      "expected_pages": [29],
+      "required_concepts": [
+        ["estratégia de comunicação", "método de responder"],
+        ["compreensão do outro", "compreensão mais clara"],
+        ["aspectos verbais e não verbais", "comunicação verbal e não verbal"]
+      ],
+      "minimum_concept_coverage": 0.67
+    },
+    {
+      "id": "escuta-terapeutica-multiturno",
+      "question": "E como ela melhora a comunicação?",
+      "setup_questions": ["O que é escuta terapêutica?"],
+      "answerable": true,
+      "expected_title": "O sujeito, a Integralidade e a Saúde Mental",
+      "expected_pages": [29],
+      "required_concepts": [
+        ["compreensão", "compreender"],
+        ["preocupações pessoais", "comunicação"]
+      ],
+      "minimum_concept_coverage": 0.5
+    },
+    {
+      "id": "ferramentas-pratica-clinica",
+      "question": "Quais ferramentas podem ser implementadas na prática clínica?",
+      "setup_questions": [],
+      "answerable": true,
+      "expected_title": "Desenvolvendo os Cuidados de Saúde Mental na APS",
+      "expected_pages": [9, 10],
+      "required_concepts": [
+        ["terapias de resolução de problemas"],
+        ["recursos cognitivo-comportamentais"],
+        ["terapia de apoio e suporte"],
+        ["manejo do estresse"],
+        ["acolhimento humanizado"],
+        ["treinamento de habilidades sociais"],
+        ["entrevista motivacional"]
+      ],
+      "minimum_concept_coverage": 1.0
+    },
+    {
+      "id": "conceito-saude-mental",
+      "question": "Por que não existe uma definição única e completa de saúde mental?",
+      "setup_questions": [],
+      "answerable": true,
+      "expected_title": "Ampliando o Conceito de Saúde Mental",
+      "expected_pages": [12, 13, 14, 15],
+      "required_concepts": [
+        ["contextos", "contexto"],
+        ["culturais", "cultura"],
+        ["sociais", "sociedade"]
+      ],
+      "minimum_concept_coverage": 0.67
+    },
+    {
+      "id": "recusa-fora-do-escopo",
+      "question": "Qual é a capital do Canadá?",
+      "setup_questions": [],
+      "answerable": false,
+      "expected_title": null,
+      "expected_pages": [],
+      "required_concepts": [],
+      "minimum_concept_coverage": 1.0
+    }
+  ]
+}

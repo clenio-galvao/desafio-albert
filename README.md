@@ -51,6 +51,33 @@ curl -N -X POST http://localhost:8000/v1/chat/stream \
 O endpoint envia eventos SSE `metadata`, `token`, `done` e, em caso de falha
 após o início do stream, `error`.
 
+## Avaliação do RAG
+
+A suíte padrão é totalmente offline e usa fakes/mocks, sem consumir a cota dos
+modelos:
+
+```bash
+pytest
+ruff check .
+mypy
+```
+
+O dataset versionado em `evaluation/rag_cases.json` contém perguntas
+respondíveis, recusa fora do escopo e conversa com múltiplos turnos. O
+avaliador mede recuperação da página esperada, presença da citação,
+cobertura dos conceitos essenciais e recusa segura.
+
+A avaliação real é separada dos testes automatizados e só executa após uma
+confirmação explícita. Ela requer a API local em funcionamento e realiza
+chamadas que podem consumir a cota compartilhada:
+
+```bash
+python scripts/evaluate_rag.py --confirm-live
+```
+
+Também é possível informar `--base-url`, `--model` e `--dataset`. O comando
+retorna código diferente de zero se algum caso não atingir seus critérios.
+
 ## Preparação da base
 
 O download e a ingestão são comandos explícitos: iniciar a API não consome a

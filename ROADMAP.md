@@ -118,14 +118,14 @@ flowchart LR
 
 ### Tarefa 7 — `test: add integration and rag evaluation suites`
 
-- [ ] Testar adapters OpenAI-compatible e Qdrant isoladamente.
-- [ ] Testar streaming parcial, falhas e desconexões.
-- [ ] Testar reingestão, PDFs inválidos e dependências indisponíveis.
-- [ ] Criar dataset com perguntas respondíveis, recusas e múltiplos turnos.
-- [ ] Avaliar recuperação, citações, groundedness e recusa.
-- [ ] Separar testes offline de avaliações reais.
-- [ ] Atingir cobertura de branches ≥90%.
-- [ ] Validar suíte, lint e tipos.
+- [x] Testar adapters OpenAI-compatible e Qdrant isoladamente.
+- [x] Testar streaming parcial, falhas e desconexões.
+- [x] Testar reingestão, PDFs inválidos e dependências indisponíveis.
+- [x] Criar dataset com perguntas respondíveis, recusas e múltiplos turnos.
+- [x] Avaliar recuperação, citações, groundedness e recusa.
+- [x] Separar testes offline de avaliações reais.
+- [x] Atingir cobertura de branches ≥90%.
+- [x] Validar suíte, lint e tipos.
 
 ### Tarefa 8 — `docs: add architecture usage and ai disclosure`
 
