@@ -33,6 +33,7 @@ class TokenChunker:
 
         for page in pages:
             tokens = self._encoding.encode(page.text)
+            position = 0
             for start in range(0, len(tokens), step):
                 text = self._encoding.decode(tokens[start : start + self._chunk_size]).strip()
                 if not text:
@@ -48,8 +49,10 @@ class TokenChunker:
                         title=page.title,
                         page=page.page,
                         content_hash=content_hash,
+                        position=position,
                     )
                 )
+                position += 1
                 if start + self._chunk_size >= len(tokens):
                     break
 

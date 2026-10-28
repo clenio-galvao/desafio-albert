@@ -81,7 +81,10 @@ def build_container(settings: Settings) -> ApplicationContainer:
         base_url=settings.openai_base_url,
         api_key=settings.openai_api_key.get_secret_value(),
     )
-    sessions = InMemorySessionRepository(ttl_seconds=settings.session_ttl_seconds)
+    sessions = InMemorySessionRepository(
+        ttl_seconds=settings.session_ttl_seconds,
+        max_sessions=settings.session_max_count,
+    )
     models = ModelCatalog(settings.allowed_chat_models)
     chat = GroundedChatService(
         llm=llm,

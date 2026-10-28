@@ -79,7 +79,7 @@ async def test_semantic_retriever_embeds_expands_and_deduplicates() -> None:
 
     assert embedding.inputs == ["pergunta"]
     assert index.vectors == [(8.0, 1.0)]
-    assert index.counts == [1]
+    assert index.counts == [1, 1]
     assert [result.chunk.id for result in results] == ["first", "second"]
     assert results[1].score == 0.9
 
@@ -95,6 +95,19 @@ async def test_semantic_retriever_rejects_invalid_embedding_response() -> None:
 
     with pytest.raises(RuntimeError, match="exatamente um"):
         await retriever.search("pergunta", limit=3, score_threshold=0.35)
+
+
+async def test_semantic_retriever_skips_neighbor_lookup_when_expansion_is_disabled() -> None:
+    index = FakeIndex(
+        results=(RetrievedChunk(chunk=make_chunk("first", 1), score=0.9),),
+        following=(make_chunk("second", 2),),
+    )
+    retriever = SemanticRetriever(embedding=FakeEmbedding(), index=index)
+
+    results = await retriever.search("pergunta", limit=3, score_threshold=0.35)
+
+    assert [result.chunk.id for result in results] == ["first"]
+    assert index.counts == []
 
 
 async def test_semantic_retriever_ignores_repeated_neighbor() -> None:

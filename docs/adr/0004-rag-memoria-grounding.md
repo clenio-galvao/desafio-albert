@@ -11,12 +11,17 @@ das conversas.
 
 ## Decisão
 
-Manter sessões no backend com TTL e janela máxima. O histórico é enviado ao
+Manter sessões no backend com TTL, janela máxima e um teto de sessões
+simultâneas (`SESSION_MAX_COUNT`). Sessões expiradas são removidas a cada
+acesso ao repositório; acima do teto, a sessão salva há mais tempo é
+descartada. O histórico é enviado ao
 modelo, mas só contextualiza a recuperação quando a pergunta contém sinais de
 continuação. Perguntas autônomas são pesquisadas isoladamente.
 
-Aplicar limiar de relevância, recuperar poucos trechos e incluir a página
-seguinte para preservar conteúdos consecutivos. O prompt limita a resposta às
+Aplicar limiar de relevância, recuperar poucos trechos e incluir o primeiro
+trecho da página seguinte para preservar conteúdos consecutivos. Cada chunk
+guarda sua posição na página (`position`), porque o Qdrant devolve os pontos
+em ordem de ID, não de leitura. O prompt limita a resposta às
 fontes, trata documentos como dados não confiáveis, exige título e página e
 orienta recusa quando a evidência não basta.
 
@@ -33,5 +38,7 @@ traduzir mensagens para o protocolo OpenAI-compatible.
 - Trocar Qdrant ou o provedor de LLM não move nem duplica as regras de
   recuperação e grounding.
 - Sessões são perdidas em reinícios e não são compartilhadas entre réplicas.
+- A memória das sessões é limitada; sob volume excessivo, conversas antigas
+  são encerradas antes de expirarem.
 - A heurística de continuação e os parâmetros de recuperação precisam ser
   recalibrados se o comportamento ou a base mudar.

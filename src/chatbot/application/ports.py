@@ -65,7 +65,9 @@ class VectorIndexPort(Protocol):
         self,
         chunk: DocumentChunk,
         count: int,
-    ) -> Sequence[DocumentChunk]: ...
+    ) -> Sequence[DocumentChunk]:
+        """Retorna o primeiro trecho de cada uma das `count` páginas seguintes, em ordem."""
+        ...
 
 
 class VectorStorePort(Protocol):

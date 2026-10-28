@@ -4,7 +4,12 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
 
-from chatbot.domain.exceptions import EmptyContentError, InvalidPageError, SessionLimitError
+from chatbot.domain.exceptions import (
+    EmptyContentError,
+    InvalidChunkPositionError,
+    InvalidPageError,
+    SessionLimitError,
+)
 
 
 class MessageRole(StrEnum):
@@ -60,12 +65,15 @@ class DocumentChunk:
     title: str
     page: int
     content_hash: str
+    position: int = 0
 
     def __post_init__(self) -> None:
         for name in ("id", "text", "source", "title", "content_hash"):
             object.__setattr__(self, name, _required_text(getattr(self, name), name))
         if self.page < 1:
             raise InvalidPageError("page deve ser maior ou igual a 1")
+        if self.position < 0:
+            raise InvalidChunkPositionError("position não pode ser negativa")
 
     def citation(self) -> Citation:
         return Citation(

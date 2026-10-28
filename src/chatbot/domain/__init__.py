@@ -3,6 +3,7 @@
 from chatbot.domain.exceptions import (
     DomainError,
     EmptyContentError,
+    InvalidChunkPositionError,
     InvalidPageError,
     SessionLimitError,
 )
@@ -21,6 +22,7 @@ __all__ = [
     "DocumentChunk",
     "DomainError",
     "EmptyContentError",
+    "InvalidChunkPositionError",
     "InvalidPageError",
     "Message",
     "MessageRole",

@@ -197,27 +197,73 @@ async def test_query_maps_vector_results() -> None:
     assert client.query_points.await_args.kwargs["query"] == [0.1, 0.2]
 
 
-async def test_pages_after_reads_consecutive_document_pages() -> None:
+def make_record(identifier: int, page: int, position: int | None) -> SimpleNamespace:
+    payload: dict[str, object] = {
+        "text": f"página {page}, trecho {position}",
+        "source": "apostila.pdf",
+        "title": "Apostila",
+        "page": page,
+        "content_hash": f"hash-{identifier}",
+    }
+    if position is not None:
+        payload["position"] = position
+    return SimpleNamespace(id=f"00000000-0000-0000-0000-{identifier:012d}", payload=payload)
+
+
+async def test_upsert_persists_chunk_position() -> None:
     store, client = make_store()
-    following_record = SimpleNamespace(
-        id="00000000-0000-0000-0000-000000000002",
-        payload={
-            "text": "continuação da lista",
-            "source": "apostila.pdf",
-            "title": "Apostila",
-            "page": 5,
-            "content_hash": "hash-5",
-        },
+    client.collection_exists.side_effect = [False, True]
+    client.get_collection.return_value = SimpleNamespace(payload_schema={})
+    chunk = DocumentChunk(
+        id="00000000-0000-0000-0000-000000000001",
+        text="conteúdo",
+        source="apostila.pdf",
+        title="Apostila",
+        page=1,
+        content_hash="hash",
+        position=2,
     )
-    client.scroll.side_effect = [
-        ([following_record], None),
-        ([following_record], None),
-    ]
+
+    await store.upsert([chunk], [[0.1, 0.2]])
+
+    assert client.upsert.await_args.kwargs["points"][0].payload["position"] == 2
+
+
+async def test_pages_after_returns_first_chunk_of_each_following_page() -> None:
+    store, client = make_store()
+    client.scroll.return_value = (
+        [
+            make_record(1, page=3, position=1),
+            make_record(2, page=2, position=2),
+            make_record(3, page=2, position=0),
+            make_record(4, page=3, position=0),
+            make_record(5, page=2, position=1),
+        ],
+        None,
+    )
 
     results = await store.pages_after(make_chunk(), 2)
 
-    assert [chunk.page for chunk in results] == [5, 5]
-    assert client.scroll.await_count == 2
+    assert [(chunk.page, chunk.position) for chunk in results] == [(2, 0), (3, 0)]
+    client.scroll.assert_awaited_once()
+    page_condition = client.scroll.await_args.kwargs["scroll_filter"].must[1]
+    assert page_condition.range == models.Range(gt=1, lte=3)
+
+
+async def test_pages_after_treats_legacy_payload_without_position_as_first() -> None:
+    store, client = make_store()
+    client.scroll.return_value = ([make_record(7, page=2, position=None)], None)
+
+    results = await store.pages_after(make_chunk(), 1)
+
+    assert [(chunk.page, chunk.position) for chunk in results] == [(2, 0)]
+
+
+async def test_pages_after_skips_query_when_count_is_zero() -> None:
+    store, client = make_store()
+
+    assert await store.pages_after(make_chunk(), 0) == ()
+    client.scroll.assert_not_awaited()
 
 
 async def test_close_releases_qdrant_client() -> None:

@@ -7,6 +7,7 @@ from chatbot.domain import (
     Citation,
     DocumentChunk,
     EmptyContentError,
+    InvalidChunkPositionError,
     InvalidPageError,
     Message,
     MessageRole,
@@ -102,6 +103,12 @@ def test_document_chunk_rejects_empty_required_fields(field: str) -> None:
 def test_document_chunk_rejects_invalid_page() -> None:
     with pytest.raises(InvalidPageError):
         make_chunk(page=0)
+
+
+def test_document_chunk_defaults_to_first_position_and_rejects_negative() -> None:
+    assert make_chunk().position == 0
+    with pytest.raises(InvalidChunkPositionError):
+        make_chunk(position=-1)
 
 
 @pytest.mark.parametrize("score", [-0.1, 1.1])

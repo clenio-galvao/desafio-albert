@@ -7,6 +7,10 @@ from qdrant_client import AsyncQdrantClient, models
 
 from chatbot.domain.models import DocumentChunk, RetrievedChunk
 
+# O scroll do Qdrant ordena por ID (uuid5, sem relação com a ordem do texto), então
+# todos os chunks das páginas seguintes precisam ser lidos para achar o primeiro.
+_NEIGHBOR_SCAN_LIMIT = 64
+
 
 class QdrantVectorStore:
     """Adapter único para ingestão e recuperação semântica."""
@@ -97,6 +101,7 @@ class QdrantVectorStore:
                     "source": chunk.source,
                     "title": chunk.title,
                     "page": chunk.page,
+                    "position": chunk.position,
                     "content_hash": chunk.content_hash,
                 },
             )
@@ -146,31 +151,33 @@ class QdrantVectorStore:
         chunk: DocumentChunk,
         count: int,
     ) -> Sequence[DocumentChunk]:
-        neighbors: list[DocumentChunk] = []
-        for offset in range(1, count + 1):
-            records, _ = await self._client.scroll(
-                collection_name=self._collection_name,
-                scroll_filter=models.Filter(
-                    must=[
-                        models.FieldCondition(
-                            key="source",
-                            match=models.MatchValue(value=chunk.source),
-                        ),
-                        models.FieldCondition(
-                            key="page",
-                            match=models.MatchValue(value=chunk.page + offset),
-                        ),
-                    ]
-                ),
-                limit=1,
-                with_payload=True,
-                with_vectors=False,
-            )
-            for record in records:
-                identifier = str(record.id)
-                neighbor = self._payload_to_chunk(identifier, record.payload or {})
-                neighbors.append(neighbor)
-        return tuple(neighbors)
+        if count < 1:
+            return ()
+        records, _ = await self._client.scroll(
+            collection_name=self._collection_name,
+            scroll_filter=models.Filter(
+                must=[
+                    models.FieldCondition(
+                        key="source",
+                        match=models.MatchValue(value=chunk.source),
+                    ),
+                    models.FieldCondition(
+                        key="page",
+                        range=models.Range(gt=chunk.page, lte=chunk.page + count),
+                    ),
+                ]
+            ),
+            limit=_NEIGHBOR_SCAN_LIMIT,
+            with_payload=True,
+            with_vectors=False,
+        )
+        first_by_page: dict[int, DocumentChunk] = {}
+        for record in records:
+            candidate = self._payload_to_chunk(str(record.id), record.payload or {})
+            current = first_by_page.get(candidate.page)
+            if current is None or candidate.position < current.position:
+                first_by_page[candidate.page] = candidate
+        return tuple(first_by_page[page] for page in sorted(first_by_page))
 
     @staticmethod
     def _payload_to_chunk(identifier: str, payload: dict[str, object]) -> DocumentChunk:
@@ -181,6 +188,7 @@ class QdrantVectorStore:
             title=str(payload["title"]),
             page=int(cast(int | str, payload["page"])),
             content_hash=str(payload["content_hash"]),
+            position=int(cast(int | str, payload.get("position", 0))),
         )
 
     async def _ensure_collection(self, dimension: int) -> None:

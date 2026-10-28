@@ -35,6 +35,8 @@ services:
         value: "3600"
       - key: SESSION_MAX_MESSAGES
         value: "12"
+      - key: SESSION_MAX_COUNT
+        value: "10000"
       - key: RETRIEVAL_HISTORY_MESSAGES
         value: "4"
       - key: MAX_MESSAGE_LENGTH

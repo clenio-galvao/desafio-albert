@@ -49,6 +49,19 @@ def test_chunker_is_deterministic_and_preserves_metadata() -> None:
     assert first == second
     assert all(chunk.source == "apostila.pdf" and chunk.page == 2 for chunk in first)
     assert len({chunk.id for chunk in first}) == len(first)
+    assert [chunk.position for chunk in first] == list(range(len(first)))
+
+
+def test_chunker_restarts_position_on_each_page() -> None:
+    chunker = make_chunker(chunk_size=4, overlap=0)
+    pages = [
+        SourcePage(source="a.pdf", title="A", page=1, text="abcdefgh"),
+        SourcePage(source="a.pdf", title="A", page=2, text="ijklmnop"),
+    ]
+
+    chunks = chunker.split(pages)
+
+    assert [(chunk.page, chunk.position) for chunk in chunks] == [(1, 0), (1, 1), (2, 0), (2, 1)]
 
 
 def test_chunker_skips_empty_pages() -> None:

@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     retrieval_following_pages: int = Field(default=1, ge=0, le=2)
     session_ttl_seconds: int = Field(default=3600, ge=60)
     session_max_messages: int = Field(default=12, ge=2, le=50)
+    session_max_count: int = Field(default=10_000, ge=1)
     retrieval_history_messages: int = Field(default=4, ge=0, le=20)
     max_message_length: int = Field(default=4000, ge=100, le=20000)
     cors_origins: str = ""

@@ -1,9 +1,10 @@
 """Política de recuperação semântica independente do índice vetorial."""
 
+import asyncio
 from collections.abc import Sequence
 
 from chatbot.application.ports import EmbeddingPort, VectorIndexPort
-from chatbot.domain.models import RetrievedChunk
+from chatbot.domain.models import DocumentChunk, RetrievedChunk
 
 
 class SemanticRetriever:
@@ -38,20 +39,31 @@ class SemanticRetriever:
             limit=limit,
             score_threshold=score_threshold,
         )
+        neighbors_by_result = await self._neighbors(base_results)
+
         results: list[RetrievedChunk] = []
         seen_ids: set[str] = set()
-        for result in base_results:
+        for result, neighbors in zip(base_results, neighbors_by_result, strict=True):
             if result.chunk.id in seen_ids:
                 continue
             results.append(result)
             seen_ids.add(result.chunk.id)
-            neighbors = await self._index.pages_after(
-                result.chunk,
-                self._following_pages,
-            )
             for chunk in neighbors:
                 if chunk.id in seen_ids:
                     continue
                 results.append(RetrievedChunk(chunk=chunk, score=result.score))
                 seen_ids.add(chunk.id)
         return tuple(results)
+
+    async def _neighbors(
+        self,
+        base_results: Sequence[RetrievedChunk],
+    ) -> Sequence[Sequence[DocumentChunk]]:
+        if self._following_pages == 0:
+            return [() for _ in base_results]
+        return await asyncio.gather(
+            *(
+                self._index.pages_after(result.chunk, self._following_pages)
+                for result in base_results
+            )
+        )

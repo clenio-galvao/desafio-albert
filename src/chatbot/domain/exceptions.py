@@ -13,5 +13,9 @@ class InvalidPageError(DomainError):
     """O número de página informado não é válido."""
 
 
+class InvalidChunkPositionError(DomainError):
+    """A posição do trecho dentro da página não é válida."""
+
+
 class SessionLimitError(DomainError):
     """A sessão atingiu o limite configurado de mensagens."""
