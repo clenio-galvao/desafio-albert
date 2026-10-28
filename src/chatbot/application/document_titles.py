@@ -9,7 +9,7 @@ _KNOWN_TITLES = (
     ),
     (
         "o-sujeito-a-integralidade-e-saude-mental",
-        "O Sujeito, a Integralidade e a Saúde Mental",
+        "O sujeito, a Integralidade e a Saúde Mental",
     ),
     (
         "saude-mental-na-atencao-primaria",

@@ -52,7 +52,7 @@ def test_application_data_contracts_are_immutable_values() -> None:
         ),
         (
             "sma-o-sujeito-a-integralidade-e-saude-mental.pdf",
-            "O Sujeito, a Integralidade e a Saúde Mental",
+            "O sujeito, a Integralidade e a Saúde Mental",
         ),
         (
             "sma-saude-mental-na-atencao-primaria-random.pdf",
