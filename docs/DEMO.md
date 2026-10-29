@@ -64,9 +64,9 @@ conversa** para apagar a sessão atual.
 4. Abra `http://localhost:5173`. O fluxo é o mesmo da demo: modelos, streaming,
    fontes e nova conversa.
 
-A publicação na Vercel aponta para a pasta `frontend/`. `VITE_API_BASE_URL`
-recebe a URL do Render, e `CORS_ORIGINS` no Render recebe só a origem estável
-publicada. Previews e `*` não entram na allowlist.
+O cliente publicado está em <https://desafio-albert.vercel.app/>.
+`VITE_API_BASE_URL` aponta para a API no Render, e `CORS_ORIGINS` aceita só
+`https://desafio-albert.vercel.app`. Previews e `*` não entram na allowlist.
 
 ## Outros clientes
 

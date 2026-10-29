@@ -54,4 +54,4 @@ services:
       - key: OTEL_EXPORTER_OTLP_HEADERS
         sync: false
       - key: CORS_ORIGINS
-        sync: false
+        value: https://desafio-albert.vercel.app

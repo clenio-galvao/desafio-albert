@@ -82,8 +82,8 @@ def test_deployment_files_use_non_root_user_and_external_secrets() -> None:
     assert "${PORT:-8000}" in dockerfile
     assert "healthCheckPath: /health/ready" in blueprint
     assert "autoDeployTrigger: checksPass" in blueprint
-    assert "CORS_ORIGINS" in blueprint
-    assert blueprint.count("sync: false") == 7
+    assert "value: https://desafio-albert.vercel.app" in blueprint
+    assert blueprint.count("sync: false") == 6
     assert "replace-me" not in blueprint
     assert ".env" in dockerignore
     assert "data" in dockerignore

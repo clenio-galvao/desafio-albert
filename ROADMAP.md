@@ -311,19 +311,20 @@ saem a rota `/demo`, o HTML e os testes que o prendem ao pacote Python.
       `X-Request-ID`, além da resposta do stream.
 - [x] Manter origem desconhecida sem `Access-Control-Allow-Origin` e
       credenciais desligadas.
-- [ ] Registrar no Render, em `CORS_ORIGINS`, somente a URL estável da Vercel.
-      Previews `*.vercel.app` ficam de fora. A chave já está no `render.yaml`
-      com `sync: false`; o valor entra quando a Vercel existir.
+- [x] Registrar no Render, em `CORS_ORIGINS`, somente
+      `https://desafio-albert.vercel.app`. Previews `*.vercel.app` ficam de fora.
 - [x] Deixar a variável vazia no exemplo versionado; produção não usa `*`.
 
 ### Tarefa 18 — `deploy: publish frontend on vercel`
 
-- [ ] Apontar o projeto da Vercel para `frontend/`, com build estático do Vite.
-- [ ] Definir `VITE_API_BASE_URL` com a URL do Render e nenhuma credencial.
-- [ ] Preencher `CORS_ORIGINS` no Render com a origem publicada e repetir o
-      smoke a partir do navegador.
+- [x] Apontar o projeto da Vercel para `frontend/`, com build estático do Vite.
+      O endereço é <https://desafio-albert.vercel.app/>.
+- [x] Definir `VITE_API_BASE_URL` com a URL do Render e nenhuma credencial.
+- [ ] Preencher `CORS_ORIGINS` no serviço já publicado e repetir o smoke a
+      partir do navegador. O `render.yaml` já traz a origem; o processo no ar
+      ainda não a aplica.
 - [ ] Validar modelos, stream, fontes, erro e nova conversa na URL da Vercel.
-- [ ] Atualizar README e DEMO com a URL, o CORS e o desenvolvimento local.
+- [x] Atualizar README e DEMO com a URL, o CORS e o desenvolvimento local.
 - [ ] Remover `/demo`, `demo.html` e os testes do HTML depois do corte.
 - [ ] Confirmar que o GitHub segue sem `node_modules`, segredos ou PDFs.
 

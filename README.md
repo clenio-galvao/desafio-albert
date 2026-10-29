@@ -15,9 +15,9 @@ solução possa ser explicada e evoluída.
 - Os embeddings usam `cohere/embed-v4.0`.
 - A coleção atual possui 257 páginas indexadas.
 - A suíte possui mais de 100 testes e cobertura de branches de 100%.
-- Aplicação publicada: <https://desafio-albert-chatbot.onrender.com/demo>.
-- O cliente React em `frontend/` consome essa API. A página `/demo` permanece
-  até o app ser publicado na Vercel.
+- Cliente publicado: <https://desafio-albert.vercel.app/>.
+- API publicada: <https://desafio-albert-chatbot.onrender.com>.
+  A página `/demo` permanece disponível na API.
 
 ## Base de conhecimento
 
@@ -175,10 +175,10 @@ npm run dev
 
 No Linux ou macOS, troque a cópia por `cp frontend/.env.example frontend/.env`.
 
-A publicação na Vercel usa a pasta `frontend/` como raiz do projeto. O build é
-`npm run build` e a saída é `dist`. Defina `VITE_API_BASE_URL` com
-`https://desafio-albert-chatbot.onrender.com`, sem credenciais. Em seguida,
-preencha `CORS_ORIGINS` no Render somente com a URL estável da Vercel.
+O cliente publicado está em <https://desafio-albert.vercel.app/>. A Vercel usa
+a pasta `frontend/` como raiz, o build `npm run build` e a saída `dist`.
+`VITE_API_BASE_URL` aponta para `https://desafio-albert-chatbot.onrender.com`,
+sem credenciais. O `render.yaml` fixa `CORS_ORIGINS` nessa origem da Vercel.
 Previews `*.vercel.app` ficam de fora, e o valor não usa `*`.
 
 ## API
@@ -269,7 +269,8 @@ O repositório contém `Dockerfile` e `render.yaml`. A imagem instala somente a
 aplicação e executa como usuário sem privilégios; PDFs, testes, `.env` e dados
 locais não entram no build.
 
-- Demo pública: <https://desafio-albert-chatbot.onrender.com/demo>;
+- Cliente público: <https://desafio-albert.vercel.app/>;
+- Demo na API: <https://desafio-albert-chatbot.onrender.com/demo>;
 - Swagger público: <https://desafio-albert-chatbot.onrender.com/docs>;
 - Health check: <https://desafio-albert-chatbot.onrender.com/health/ready>.
 
@@ -284,11 +285,9 @@ A primeira configuração, uma vez:
 2. No Render, crie um Blueprint a partir do repositório.
 3. Preencha os valores marcados com `sync: false`:
    `OPENAI_BASE_URL`, `OPENAI_API_KEY`, `QDRANT_URL`, `QDRANT_API_KEY`,
-   `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_HEADERS` e
-   `CORS_ORIGINS`.
-   Os dois de telemetria podem ficar vazios: a API sobe sem exportar.
-   `CORS_ORIGINS` também fica vazio até existir a URL estável da Vercel;
-   vazio mantém o CORS desligado.
+   `OTEL_EXPORTER_OTLP_ENDPOINT` e `OTEL_EXPORTER_OTLP_HEADERS`.
+   Os dois podem ficar vazios: a API sobe sem exportar.
+   `CORS_ORIGINS` já vem no Blueprint como `https://desafio-albert.vercel.app`.
 4. Confirme que `QDRANT_COLLECTION` aponta para a coleção já ingerida e que
    Auto-Deploy está em After CI Checks Pass.
 5. Aguarde `/health/ready` ficar saudável e valide `/demo`.
@@ -356,8 +355,8 @@ Nunca faça commit de chaves, apostilas em PDF ou índices gerados.
 - Logs não incluem chaves nem o conteúdo integral das mensagens.
 - Documentos são delimitados como dados não confiáveis contra prompt injection.
 - CORS fica desabilitado por padrão e aceita apenas origens explícitas.
-  O frontend local usa `http://localhost:5173`. Em produção, somente a URL
-  estável da Vercel.
+  O frontend local usa `http://localhost:5173`. Em produção, somente
+  `https://desafio-albert.vercel.app`.
 - Sessões expiram por TTL e possuem limite de mensagens.
 
 Esta API oferece conteúdo educacional baseado nas apostilas; não substitui
