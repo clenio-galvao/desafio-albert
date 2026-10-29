@@ -255,6 +255,78 @@ importam OpenTelemetry. Sem endpoint configurado, a API sobe normalmente.
       trace no Grafana Cloud.
 - [x] Validar Ruff, mypy e cobertura de branches ≥90%.
 
+## Frontend React (evolução)
+
+O chat de hoje é o `demo.html`, servido em `GET /demo` pelo próprio FastAPI.
+O navegador fala com a API na mesma origem, então o CORS não entra nesse
+fluxo. O middleware já existe e só liga quando `CORS_ORIGINS` lista origens
+explícitas: métodos `GET`, `POST` e `DELETE`, cabeçalhos `Content-Type` e
+`X-Request-ID`, `X-Request-ID` exposto e credenciais desligadas. Vazio, o
+middleware fica de fora. Em produção a variável não está no Render, e a suíte
+só cobre o preflight de `GET /v1/models`.
+
+O cliente novo é um projeto React no mesmo repositório, em `frontend/`, e
+consome a API já publicada. A hospedagem final é a Vercel, em outra origem.
+Essa URL é o que falta para concluir o CORS: a allowlist passa a ter um
+consumidor real, continua explícita e não abre `*`.
+
+O núcleo Python não muda de papel. O React só chama `GET /v1/models`,
+`POST /v1/chat/stream` e `DELETE /v1/sessions/{session_id}`. Nenhuma chave
+entra no bundle. Vite, React e TypeScript, sem biblioteca de UI: o visual
+atual (tema claro/escuro, fontes, sessão e layout estreito) permanece em CSS.
+SSR não entra, porque a página é um cliente do SSE.
+
+As práticas repetem as da API. TypeScript estrito e ESLint no lugar de mypy e
+Ruff. Vitest e Testing Library no lugar do pytest: um comportamento por
+teste, arrange/act/assert visíveis, fetch simulado e suíte offline. Cobertura
+de branches ≥90% no `frontend/`, medida à parte da cobertura Python. A CI ganha
+um job que não depende de Qdrant, gateway nem segredos.
+
+O `demo.html` permanece até o app da Vercel ser a entrada documentada. Depois
+saem a rota `/demo`, o HTML e os testes que o prendem ao pacote Python.
+
+### Tarefa 15 — `chore: bootstrap react client and quality gates`
+
+- [x] Criar `frontend/` com Vite, React e TypeScript estrito.
+- [x] Configurar ESLint, Vitest, Testing Library e cobertura de branches ≥90%.
+- [x] Adicionar job de CI só do frontend, sem rede e sem segredos.
+- [x] Publicar `frontend/.env.example` com `VITE_API_BASE_URL` e sem chaves.
+- [x] Ignorar `node_modules` e artefatos de build.
+
+### Tarefa 16 — `feat: add react chat client`
+
+- [x] Carregar a allowlist em `GET /v1/models` e tratar falha sem habilitar envio.
+- [x] Enviar `session_id`, `message` e `model` em `POST /v1/chat/stream`.
+- [x] Ler o SSE aos poucos: `metadata`, `token`, `done` e `error`.
+- [x] Agrupar citações por título e intervalo de páginas, como no HTML.
+- [x] Encerrar a sessão em `DELETE /v1/sessions/{session_id}` e abrir outra.
+- [x] Manter estados de espera, erro, foco e `aria-live`.
+- [x] Limitar a mensagem a 4000 caracteres e não interpolar segredo no bundle.
+- [x] Testar cada comportamento com API simulada, um caso por teste.
+
+### Tarefa 17 — `feat: close cors for the browser client`
+
+- [x] Documentar a origem local `http://localhost:5173` para o desenvolvimento.
+- [x] Cobrir o preflight de `POST /v1/chat/stream` com `Content-Type` e
+      `X-Request-ID`, além da resposta do stream.
+- [x] Manter origem desconhecida sem `Access-Control-Allow-Origin` e
+      credenciais desligadas.
+- [ ] Registrar no Render, em `CORS_ORIGINS`, somente a URL estável da Vercel.
+      Previews `*.vercel.app` ficam de fora. A chave já está no `render.yaml`
+      com `sync: false`; o valor entra quando a Vercel existir.
+- [x] Deixar a variável vazia no exemplo versionado; produção não usa `*`.
+
+### Tarefa 18 — `deploy: publish frontend on vercel`
+
+- [ ] Apontar o projeto da Vercel para `frontend/`, com build estático do Vite.
+- [ ] Definir `VITE_API_BASE_URL` com a URL do Render e nenhuma credencial.
+- [ ] Preencher `CORS_ORIGINS` no Render com a origem publicada e repetir o
+      smoke a partir do navegador.
+- [ ] Validar modelos, stream, fontes, erro e nova conversa na URL da Vercel.
+- [ ] Atualizar README e DEMO com a URL, o CORS e o desenvolvimento local.
+- [ ] Remover `/demo`, `demo.html` e os testes do HTML depois do corte.
+- [ ] Confirmar que o GitHub segue sem `node_modules`, segredos ou PDFs.
+
 ## Critérios de aceite
 
 - Tokens são entregues antes de a resposta terminar.
@@ -264,6 +336,8 @@ importam OpenTelemetry. Sem endpoint configurado, a API sobe normalmente.
 - Reingestão sem mudanças não recria embeddings.
 - CI passa em lint, tipos, testes e cobertura de branches ≥90%.
 - Demo, Swagger, Postman e `curl` permitem testar a aplicação publicada.
+- O cliente React na Vercel consome a API publicada; o CORS aceita só essa
+  origem e permanece desligado quando a lista está vazia.
 - README e ADRs permitem explicar decisões, alternativas e uso de IA.
 - GitHub não contém segredos, PDFs ou dados sensíveis.
 - Telemetria não contém texto da conversa nem segredos; a API sobe sem

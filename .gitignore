@@ -24,6 +24,12 @@ htmlcov/
 .mypy_cache/
 .ruff_cache/
 
+# Frontend
+node_modules/
+frontend/dist/
+frontend/coverage/
+*.tsbuildinfo
+
 # Editors and operating systems
 .idea/
 .vscode/

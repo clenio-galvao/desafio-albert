@@ -16,6 +16,8 @@ solução possa ser explicada e evoluída.
 - A coleção atual possui 257 páginas indexadas.
 - A suíte possui mais de 100 testes e cobertura de branches de 100%.
 - Aplicação publicada: <https://desafio-albert-chatbot.onrender.com/demo>.
+- O cliente React em `frontend/` consome essa API. A página `/demo` permanece
+  até o app ser publicado na Vercel.
 
 ## Base de conhecimento
 
@@ -135,7 +137,8 @@ sem recalcular embeddings, com `python scripts/migrate_qdrant_titles.py`.
 uvicorn chatbot.main:app --reload
 ```
 
-- Demo: `http://localhost:8000/demo`;
+- Demo em HTML: `http://localhost:8000/demo`;
+- Cliente React: `http://localhost:5173`, depois dos passos abaixo;
 - Swagger: `http://localhost:8000/docs`;
 - liveness: `http://localhost:8000/health/live`;
 - readiness do Qdrant: `http://localhost:8000/health/ready`;
@@ -152,6 +155,31 @@ curl -N -X POST http://localhost:8000/v1/chat/stream \
 O endpoint envia `metadata`, um ou mais eventos `token`, `done` e, em falhas
 iniciadas após os cabeçalhos HTTP, `error`. O roteiro completo está em
 [docs/DEMO.md](docs/DEMO.md).
+
+## Cliente React
+
+O diretório `frontend/` é um app Vite que chama a API já existente:
+`GET /v1/models`, `POST /v1/chat/stream` e `DELETE /v1/sessions/{session_id}`.
+Nenhuma chave entra no bundle. A variável pública é só `VITE_API_BASE_URL`.
+
+Para o navegador em `http://localhost:5173` falar com a API local, o `.env` da
+API precisa de `CORS_ORIGINS=http://localhost:5173`. Reinicie o Uvicorn depois
+de alterar essa variável. Vazio, o CORS continua desligado.
+
+```powershell
+Copy-Item frontend\.env.example frontend\.env
+cd frontend
+npm ci
+npm run dev
+```
+
+No Linux ou macOS, troque a cópia por `cp frontend/.env.example frontend/.env`.
+
+A publicação na Vercel usa a pasta `frontend/` como raiz do projeto. O build é
+`npm run build` e a saída é `dist`. Defina `VITE_API_BASE_URL` com
+`https://desafio-albert-chatbot.onrender.com`, sem credenciais. Em seguida,
+preencha `CORS_ORIGINS` no Render somente com a URL estável da Vercel.
+Previews `*.vercel.app` ficam de fora, e o valor não usa `*`.
 
 ## API
 
@@ -207,9 +235,19 @@ ruff check .
 mypy
 ```
 
-A CI executa essas três verificações em Python 3.12. Os testes são offline,
-usam fakes/mocks e cobrem adapters, ingestão idempotente, Qdrant, PDFs
-inválidos, memória, múltiplos turnos, erros e desconexões de streaming.
+No cliente React:
+
+```bash
+cd frontend
+npm run lint
+npm run typecheck
+npm test
+```
+
+A CI executa as verificações de Python 3.12 e, em paralelo, as do frontend.
+Os testes de Python são offline: usam fakes/mocks e cobrem adapters, ingestão
+idempotente, Qdrant, PDFs inválidos, memória, múltiplos turnos, erros e
+desconexões de streaming. Os testes do React usam fetch simulado.
 
 O dataset em `evaluation/rag_cases.json` contém perguntas respondíveis,
 recusa fora do escopo e conversa com múltiplos turnos. A suíte offline percorre
@@ -244,10 +282,13 @@ A primeira configuração, uma vez:
 
 1. Envie a branch `main` ao GitHub.
 2. No Render, crie um Blueprint a partir do repositório.
-3. Preencha os seis valores marcados com `sync: false`:
+3. Preencha os valores marcados com `sync: false`:
    `OPENAI_BASE_URL`, `OPENAI_API_KEY`, `QDRANT_URL`, `QDRANT_API_KEY`,
-   `OTEL_EXPORTER_OTLP_ENDPOINT` e `OTEL_EXPORTER_OTLP_HEADERS`.
-   Os dois últimos podem ficar vazios: a API sobe sem exportar telemetria.
+   `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_HEADERS` e
+   `CORS_ORIGINS`.
+   Os dois de telemetria podem ficar vazios: a API sobe sem exportar.
+   `CORS_ORIGINS` também fica vazio até existir a URL estável da Vercel;
+   vazio mantém o CORS desligado.
 4. Confirme que `QDRANT_COLLECTION` aponta para a coleção já ingerida e que
    Auto-Deploy está em After CI Checks Pass.
 5. Aguarde `/health/ready` ficar saudável e valide `/demo`.
@@ -315,6 +356,8 @@ Nunca faça commit de chaves, apostilas em PDF ou índices gerados.
 - Logs não incluem chaves nem o conteúdo integral das mensagens.
 - Documentos são delimitados como dados não confiáveis contra prompt injection.
 - CORS fica desabilitado por padrão e aceita apenas origens explícitas.
+  O frontend local usa `http://localhost:5173`. Em produção, somente a URL
+  estável da Vercel.
 - Sessões expiram por TTL e possuem limite de mensagens.
 
 Esta API oferece conteúdo educacional baseado nas apostilas; não substitui
@@ -410,6 +453,7 @@ validar resultados e controlar chamadas que consomem orçamento.
 
 ```text
 src/chatbot/          aplicação, domínio e adapters
+frontend/             cliente React que consome a API
 scripts/              download, ingestão, avaliação real e carga
 evaluation/           dataset versionado de avaliação
 tests/                testes unitários, integração e avaliação offline

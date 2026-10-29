@@ -430,6 +430,59 @@ async def test_cors_rejects_unknown_origin() -> None:
     assert "access-control-allow-origin" not in response.headers
 
 
+async def test_cors_preflight_allows_stream_headers() -> None:
+    async with AsyncClient(
+        transport=ASGITransport(app=_cors_app()),
+        base_url="http://test",
+    ) as client:
+        response = await client.options(
+            "/v1/chat/stream",
+            headers={
+                "Origin": "https://frontend.test",
+                "Access-Control-Request-Method": "POST",
+                "Access-Control-Request-Headers": "Content-Type,X-Request-ID",
+            },
+        )
+
+    allowed = response.headers["access-control-allow-headers"].lower()
+    assert response.headers["access-control-allow-origin"] == "https://frontend.test"
+    assert "POST" in response.headers["access-control-allow-methods"]
+    assert "content-type" in allowed
+    assert "x-request-id" in allowed
+
+
+async def test_cors_stream_exposes_request_id() -> None:
+    async with AsyncClient(
+        transport=ASGITransport(app=_cors_app()),
+        base_url="http://test",
+    ) as client:
+        response = await client.post(
+            "/v1/chat/stream",
+            headers={"Origin": "https://frontend.test"},
+            json={"session_id": "session-1", "message": "Olá", "model": "model-a"},
+        )
+
+    exposed = response.headers["access-control-expose-headers"].lower()
+    assert response.headers["access-control-allow-origin"] == "https://frontend.test"
+    assert "x-request-id" in exposed
+
+
+async def test_cors_omits_credentials() -> None:
+    async with AsyncClient(
+        transport=ASGITransport(app=_cors_app()),
+        base_url="http://test",
+    ) as client:
+        response = await client.options(
+            "/v1/models",
+            headers={
+                "Origin": "https://frontend.test",
+                "Access-Control-Request-Method": "GET",
+            },
+        )
+
+    assert "access-control-allow-credentials" not in response.headers
+
+
 async def test_demo_contains_streaming_client_without_backend_secrets() -> None:
     async with AsyncClient(
         transport=ASGITransport(app=create_app()),

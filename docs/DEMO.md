@@ -8,7 +8,7 @@
 3. Inicie com `uvicorn chatbot.main:app --reload`.
 4. Abra `http://localhost:8000/health/ready`; o esperado é
    `{"status":"ready"}`.
-5. Abra `http://localhost:8000/demo`.
+5. Abra `http://localhost:8000/demo`, ou o cliente React descrito abaixo.
 
 ## Demonstração sugerida
 
@@ -54,6 +54,19 @@ sem completar a resposta com conhecimento externo.
 Troque entre `azure/gpt-5-mini` e `azure/gpt-6-luna`. Os dois usam o mesmo
 endpoint, e a resposta deve aparecer incrementalmente. Clique em **Nova
 conversa** para apagar a sessão atual.
+
+## Cliente React
+
+1. No `.env` da API, defina `CORS_ORIGINS=http://localhost:5173` e reinicie
+   o Uvicorn. Sem essa origem, o navegador bloqueia o app da porta 5173.
+2. Copie `frontend/.env.example` para `frontend/.env`.
+3. Em `frontend/`, execute `npm ci` e `npm run dev`.
+4. Abra `http://localhost:5173`. O fluxo é o mesmo da demo: modelos, streaming,
+   fontes e nova conversa.
+
+A publicação na Vercel aponta para a pasta `frontend/`. `VITE_API_BASE_URL`
+recebe a URL do Render, e `CORS_ORIGINS` no Render recebe só a origem estável
+publicada. Previews e `*` não entram na allowlist.
 
 ## Outros clientes
 

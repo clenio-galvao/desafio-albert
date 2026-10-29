@@ -37,6 +37,14 @@ def test_rag_evaluation_dataset_covers_core_scenarios() -> None:
     )
 
 
+def test_env_example_keeps_cors_disabled_until_an_explicit_origin() -> None:
+    example = Path(".env.example").read_text(encoding="utf-8")
+
+    assert "\nCORS_ORIGINS=\n" in example or example.endswith("CORS_ORIGINS=\n")
+    assert "CORS_ORIGINS=*" not in example
+    assert "http://localhost:5173" in example
+
+
 def test_evaluation_and_load_scripts_exist() -> None:
     assert Path("scripts/evaluate_rag.py").is_file()
     assert Path("scripts/load_test.py").is_file()
@@ -74,7 +82,8 @@ def test_deployment_files_use_non_root_user_and_external_secrets() -> None:
     assert "${PORT:-8000}" in dockerfile
     assert "healthCheckPath: /health/ready" in blueprint
     assert "autoDeployTrigger: checksPass" in blueprint
-    assert blueprint.count("sync: false") == 6
+    assert "CORS_ORIGINS" in blueprint
+    assert blueprint.count("sync: false") == 7
     assert "replace-me" not in blueprint
     assert ".env" in dockerignore
     assert "data" in dockerignore
