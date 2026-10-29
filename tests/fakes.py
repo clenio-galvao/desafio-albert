@@ -1,8 +1,10 @@
 """Fakes determinísticos para testar casos de uso sem rede ou custo."""
 
-from collections.abc import AsyncIterator, Sequence
+from collections.abc import AsyncIterator, Iterator, Mapping, Sequence
+from contextlib import contextmanager
 
 from chatbot.application.models import PromptMessage, SourcePage
+from chatbot.application.observability import ChatObservation
 from chatbot.domain.models import ChatSession, DocumentChunk, RetrievedChunk
 
 
@@ -122,3 +124,44 @@ class CharacterEncoding:
     def decode(self, tokens: Sequence[int]) -> str:
         """Reconstrói o texto a partir dos códigos dos caracteres."""
         return "".join(chr(token) for token in tokens)
+
+
+class _RecordingSpan:
+    def __init__(self, attributes: dict[str, str | int | float | bool]) -> None:
+        self._attributes = attributes
+
+    def set_attribute(self, key: str, value: str | int | float | bool) -> None:
+        self._attributes[key] = value
+
+
+class RecordingObservability:
+    """Guarda intervalos e desfechos para asserções sem exportar telemetria."""
+
+    def __init__(self) -> None:
+        self.spans: list[tuple[str, dict[str, str | int | float | bool]]] = []
+        self.observations: list[ChatObservation] = []
+        self.rejections: list[tuple[str, str]] = []
+
+    @contextmanager
+    def start_span(
+        self,
+        name: str,
+        attributes: Mapping[str, str | int | float | bool] | None = None,
+    ) -> Iterator[_RecordingSpan]:
+        """Memoriza o intervalo e permite anotações posteriores no mesmo mapa."""
+        stored = dict(attributes or {})
+        self.spans.append((name, stored))
+        yield _RecordingSpan(stored)
+
+    def record_chat(self, observation: ChatObservation) -> None:
+        """Guarda o desfecho informado pelo adapter HTTP."""
+        self.observations.append(observation)
+
+    def record_admission_rejected(
+        self,
+        *,
+        request_id: str,
+        session_fingerprint: str,
+    ) -> None:
+        """Guarda a recusa de admissão para o teste de saturação."""
+        self.rejections.append((request_id, session_fingerprint))

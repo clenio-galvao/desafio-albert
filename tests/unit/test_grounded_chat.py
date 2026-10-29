@@ -14,7 +14,7 @@ from chatbot.application.use_cases import GroundedChatService, ModelCatalog
 from chatbot.application.use_cases.answer_question import INSUFFICIENT_EVIDENCE_MESSAGE
 from chatbot.domain import DocumentChunk, RetrievedChunk
 
-from ..fakes import FakeLLM, FakeSessionRepository, FakeVectorStore
+from ..fakes import FakeLLM, FakeSessionRepository, FakeVectorStore, RecordingObservability
 
 
 def make_retrieved_chunk(score: float = 0.9) -> RetrievedChunk:
@@ -208,6 +208,41 @@ async def test_grounded_chat_contextualizes_follow_up_from_existing_session() ->
     assert "assistant: resposta" in retriever.queries[1]
     assert retriever.queries[1].endswith("Pergunta atual: E com que frequência?")
     assert len(sessions.sessions["session"].messages) == 4
+
+
+async def test_grounded_chat_opens_generation_span_without_the_question() -> None:
+    recording = RecordingObservability()
+    service = make_service(observability=recording)
+
+    events = [
+        event
+        async for event in service.stream(
+            ChatRequest(session_id="session", message="Como cuidar?", model="model-a")
+        )
+    ]
+
+    assert [name for name, _attributes in recording.spans] == ["chat.stream", "llm"]
+    assert recording.spans[0][1]["chat.refused"] is False
+    assert recording.spans[0][1]["retrieval.best_score"] == 0.9
+    assert recording.spans[0][1]["session.fingerprint"] != "session"
+    assert "Como cuidar?" not in str(recording.spans)
+    assert events[0].best_score == 0.9
+
+
+async def test_grounded_chat_marks_refusal_on_the_stream_span() -> None:
+    recording = RecordingObservability()
+    service = make_service(retriever=FakeVectorStore(), observability=recording)
+
+    _ = [
+        event
+        async for event in service.stream(
+            ChatRequest(session_id="session", message="Sem resposta?", model="model-a")
+        )
+    ]
+
+    assert [name for name, _attributes in recording.spans] == ["chat.stream"]
+    assert recording.spans[0][1]["chat.refused"] is True
+    assert "retrieval.best_score" not in recording.spans[0][1]
 
 
 async def test_grounded_chat_rejects_model_before_retrieval() -> None:

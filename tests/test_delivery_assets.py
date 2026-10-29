@@ -60,7 +60,7 @@ def test_documentation_links_architecture_decisions_and_demo_guide() -> None:
     assert "Uso de IA no desenvolvimento" in readme
     assert "python scripts/load_test.py" in readme
     assert "Troubleshooting" in Path("docs/DEMO.md").read_text(encoding="utf-8")
-    for number in range(1, 6):
+    for number in range(1, 7):
         filename = next(Path("docs/adr").glob(f"{number:04d}-*.md"))
         assert filename.name in adr_index
 
@@ -74,7 +74,7 @@ def test_deployment_files_use_non_root_user_and_external_secrets() -> None:
     assert "${PORT:-8000}" in dockerfile
     assert "healthCheckPath: /health/ready" in blueprint
     assert "autoDeployTrigger: checksPass" in blueprint
-    assert blueprint.count("sync: false") == 4
+    assert blueprint.count("sync: false") == 6
     assert "replace-me" not in blueprint
     assert ".env" in dockerignore
     assert "data" in dockerignore

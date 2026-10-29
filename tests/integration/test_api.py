@@ -15,11 +15,14 @@ from chatbot.application.exceptions import (
     MessageTooLongError,
     UnsupportedModelError,
 )
+from chatbot.application.observability import ChatOutcome, fingerprint_session
 from chatbot.application.stream_gate import ConcurrentStreamGate
 from chatbot.application.use_cases import ModelCatalog
 from chatbot.bootstrap import ApplicationContainer
 from chatbot.domain import Citation
 from chatbot.main import create_app
+
+from ..fakes import RecordingObservability
 
 
 class FakeReadiness:
@@ -360,7 +363,10 @@ async def test_chat_propagates_task_cancellation() -> None:
     async def receive() -> dict[str, object]:
         return {"type": "http.request", "body": b"", "more_body": False}
 
-    request = Request({"type": "http", "method": "POST", "path": "/"}, receive)
+    request = Request(
+        {"type": "http", "method": "POST", "path": "/", "headers": []},
+        receive,
+    )
     response = await stream_chat(
         ChatBody(session_id="session", message="pergunta", model="model-a"),
         request,
@@ -440,3 +446,194 @@ async def test_demo_contains_streaming_client_without_backend_secrets() -> None:
     assert "formatPages(pages)" in response.text
     assert "OPENAI_API_KEY" not in response.text
     assert "QDRANT_API_KEY" not in response.text
+
+
+async def test_http_echoes_a_safe_request_id() -> None:
+    async with make_client(make_container()) as client:
+        response = await client.get("/health/live", headers={"X-Request-ID": "req-123"})
+
+    assert response.headers["x-request-id"] == "req-123"
+
+
+async def test_http_generates_request_id_when_missing() -> None:
+    async with make_client(make_container()) as client:
+        response = await client.get("/health/live")
+
+    request_id = response.headers["x-request-id"]
+    assert len(request_id) == 32
+    assert request_id.isalnum()
+
+
+async def test_http_replaces_unsafe_request_id() -> None:
+    async with make_client(make_container()) as client:
+        response = await client.get("/health/live", headers={"X-Request-ID": "bad id"})
+
+    assert response.headers["x-request-id"] != "bad id"
+    assert " " not in response.headers["x-request-id"]
+
+
+async def test_completed_stream_records_operational_outcome() -> None:
+    recording = RecordingObservability()
+    chat = FakeChat(tokens=("Olá", " mundo"))
+    container = make_container(chat=chat)
+    container = ApplicationContainer(
+        chat=chat,
+        models=container.models,
+        end_session=container.end_session,
+        readiness=container.readiness,
+        observability=recording,
+    )
+    async with make_client(container) as client:
+        response = await client.post(
+            "/v1/chat/stream",
+            headers={"X-Request-ID": "req-stream"},
+            json={"session_id": "session", "message": "pergunta clínica", "model": "model-a"},
+        )
+
+    observation = recording.observations[0]
+    assert response.headers["x-request-id"] == "req-stream"
+    assert observation.outcome is ChatOutcome.COMPLETED
+    assert observation.request_id == "req-stream"
+    assert observation.citation_count == 1
+    assert observation.first_token_seconds is not None
+    assert observation.session_fingerprint == fingerprint_session("session")
+    assert "pergunta clínica" not in str(recording.observations)
+
+
+async def test_refused_stream_records_refusal() -> None:
+    recording = RecordingObservability()
+
+    class RefusingChat(FakeChat):
+        async def stream(self, request: ChatRequest) -> AsyncGenerator[ChatEvent, None]:
+            yield ChatEvent(type=ChatEventType.METADATA)
+            yield ChatEvent(type=ChatEventType.TOKEN, content="recusa")
+            yield ChatEvent(type=ChatEventType.DONE)
+
+    container = ApplicationContainer(
+        chat=RefusingChat(),
+        models=ModelCatalog(["model-a"]),
+        end_session=FakeEndSession(),
+        readiness=FakeReadiness(),
+        observability=recording,
+    )
+    async with make_client(container) as client:
+        response = await client.post(
+            "/v1/chat/stream",
+            json={"session_id": "session", "message": "pergunta", "model": "model-a"},
+        )
+
+    assert response.status_code == 200
+    assert recording.observations[0].outcome is ChatOutcome.REFUSED
+    assert recording.observations[0].citation_count == 0
+
+
+async def test_rejected_stream_records_admission_failure() -> None:
+    recording = RecordingObservability()
+    started = asyncio.Event()
+    release = asyncio.Event()
+
+    class BlockingChat(FakeChat):
+        async def stream(self, request: ChatRequest) -> AsyncGenerator[ChatEvent, None]:
+            started.set()
+            await release.wait()
+            async for event in super().stream(request):
+                yield event
+
+    container = ApplicationContainer(
+        chat=BlockingChat(),
+        models=ModelCatalog(["model-a"]),
+        end_session=FakeEndSession(),
+        readiness=FakeReadiness(),
+        stream_gate=ConcurrentStreamGate(1),
+        observability=recording,
+    )
+    async with make_client(container) as client:
+        first = asyncio.create_task(
+            client.post(
+                "/v1/chat/stream",
+                json={"session_id": "one", "message": "pergunta", "model": "model-a"},
+            )
+        )
+        await asyncio.wait_for(started.wait(), timeout=2)
+        denied = await client.post(
+            "/v1/chat/stream",
+            json={"session_id": "two", "message": "pergunta", "model": "model-a"},
+        )
+        release.set()
+        await first
+
+    assert denied.status_code == 429
+    assert len(recording.rejections) == 1
+    assert recording.rejections[0][1] == fingerprint_session("two")
+
+
+async def test_timeout_records_timeout_outcome() -> None:
+    recording = RecordingObservability()
+
+    class SlowChat(FakeChat):
+        async def stream(self, request: ChatRequest) -> AsyncGenerator[ChatEvent, None]:
+            yield ChatEvent(type=ChatEventType.METADATA)
+            await asyncio.sleep(1)
+            yield ChatEvent(type=ChatEventType.TOKEN, content="tarde")
+            yield ChatEvent(type=ChatEventType.DONE)
+
+    container = ApplicationContainer(
+        chat=SlowChat(),
+        models=ModelCatalog(["model-a"]),
+        end_session=FakeEndSession(),
+        readiness=FakeReadiness(),
+        stream_timeout_seconds=0.05,
+        observability=recording,
+    )
+    async with make_client(container) as client:
+        response = await client.post(
+            "/v1/chat/stream",
+            json={"session_id": "session", "message": "pergunta", "model": "model-a"},
+        )
+
+    assert response.status_code == 200
+    assert recording.observations[0].outcome is ChatOutcome.TIMEOUT
+    assert recording.observations[0].first_token_seconds is None
+
+
+async def test_disconnect_records_disconnected_outcome() -> None:
+    recording = RecordingObservability()
+    container = ApplicationContainer(
+        chat=FakeChat(),
+        models=ModelCatalog(["model-a"]),
+        end_session=FakeEndSession(),
+        readiness=FakeReadiness(),
+        observability=recording,
+    )
+    with patch(
+        "starlette.requests.Request.is_disconnected",
+        new=AsyncMock(return_value=True),
+    ):
+        async with make_client(container) as client:
+            response = await client.post(
+                "/v1/chat/stream",
+                json={"session_id": "session", "message": "pergunta", "model": "model-a"},
+            )
+
+    assert response.status_code == 200
+    assert recording.observations[0].outcome is ChatOutcome.DISCONNECTED
+
+
+async def test_stream_error_records_error_outcome() -> None:
+    recording = RecordingObservability()
+    container = ApplicationContainer(
+        chat=FakeChat(RuntimeError("falha")),
+        models=ModelCatalog(["model-a"]),
+        end_session=FakeEndSession(),
+        readiness=FakeReadiness(),
+        observability=recording,
+    )
+    async with make_client(container) as client:
+        response = await client.post(
+            "/v1/chat/stream",
+            json={"session_id": "session", "message": "pergunta", "model": "model-a"},
+        )
+
+    assert "event: error" in response.text
+    assert recording.observations[0].outcome is ChatOutcome.ERROR
+    assert "falha" not in response.text

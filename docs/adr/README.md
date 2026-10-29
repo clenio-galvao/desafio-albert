@@ -8,3 +8,4 @@ mais afetam a evolução da solução.
 - [ADR 0003 — Gateway OpenAI-compatible e streaming SSE](0003-openai-compatible-sse.md)
 - [ADR 0004 — RAG fundamentado e memória temporária](0004-rag-memoria-grounding.md)
 - [ADR 0005 — Entrega concorrente, teste de carga e scale-out](0005-escalabilidade-carga.md)
+- [ADR 0006 — Observabilidade com OpenTelemetry e Grafana Cloud](0006-observabilidade-otel-grafana.md)

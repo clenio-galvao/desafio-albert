@@ -41,6 +41,9 @@ def test_settings_default_retrieval_values() -> None:
     assert settings.retrieval_score_threshold == 0.35
     assert settings.retrieval_following_pages == 1
     assert settings.max_message_length == DEFAULT_MAX_MESSAGE_LENGTH
+    assert settings.otel_exporter_otlp_endpoint == ""
+    assert settings.otel_traces_sample_ratio == 1
+    assert settings.otel_service_name == "desafio-albert-chatbot"
 
 
 def test_split_unique_csv_strips_and_deduplicates() -> None:

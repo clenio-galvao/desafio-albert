@@ -45,3 +45,11 @@ services:
         value: "32"
       - key: STREAM_TIMEOUT_SECONDS
         value: "60"
+      - key: OTEL_SERVICE_NAME
+        value: desafio-albert-chatbot
+      - key: OTEL_TRACES_SAMPLE_RATIO
+        value: "0.2"
+      - key: OTEL_EXPORTER_OTLP_ENDPOINT
+        sync: false
+      - key: OTEL_EXPORTER_OTLP_HEADERS
+        sync: false

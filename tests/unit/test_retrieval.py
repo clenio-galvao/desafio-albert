@@ -5,7 +5,7 @@ import pytest
 from chatbot.application.retrieval import SemanticRetriever
 from chatbot.domain import DocumentChunk, RetrievedChunk
 
-from ..fakes import FakeEmbedding
+from ..fakes import FakeEmbedding, RecordingObservability
 
 
 def make_chunk(identifier: str, page: int) -> DocumentChunk:
@@ -124,3 +124,35 @@ async def test_semantic_retriever_ignores_repeated_neighbor() -> None:
     results = await retriever.search("pergunta", limit=3, score_threshold=0.35)
 
     assert [result.chunk.id for result in results] == ["first"]
+
+
+async def test_semantic_retriever_records_dependency_spans_without_query_text() -> None:
+    recording = RecordingObservability()
+    retriever = SemanticRetriever(
+        embedding=FakeEmbedding(),
+        index=FakeIndex(
+            results=(RetrievedChunk(chunk=make_chunk("first", 1), score=0.9),),
+        ),
+        observability=recording,
+    )
+
+    await retriever.search("pergunta clínica", limit=3, score_threshold=0.35)
+
+    assert [name for name, _attributes in recording.spans] == ["retrieval", "embed", "qdrant"]
+    assert recording.spans[0][1]["retrieval.best_score"] == 0.9
+    assert "pergunta clínica" not in str(recording.spans)
+
+
+async def test_semantic_retriever_marks_empty_result_as_refusal() -> None:
+    recording = RecordingObservability()
+    retriever = SemanticRetriever(
+        embedding=FakeEmbedding(),
+        index=FakeIndex(),
+        observability=recording,
+    )
+
+    results = await retriever.search("nada", limit=3, score_threshold=0.35)
+
+    assert results == ()
+    assert recording.spans[0][1]["chat.refused"] is True
+    assert "retrieval.best_score" not in recording.spans[0][1]

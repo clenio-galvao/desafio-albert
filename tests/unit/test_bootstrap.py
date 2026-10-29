@@ -1,10 +1,19 @@
 from collections.abc import AsyncGenerator
 
 import pytest
+from opentelemetry.sdk.metrics import MeterProvider
+from opentelemetry.sdk.metrics.export import InMemoryMetricReader
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
+from chatbot.adapters.outbound.telemetry.logging_adapter import LoggingObservability
+from chatbot.adapters.outbound.telemetry.otlp import OpenTelemetryObservability
 from chatbot.application import ChatEvent, ChatEventType, ChatRequest
 from chatbot.application.exceptions import MessageTooLongError
-from chatbot.application.use_cases import ModelCatalog
+from chatbot.application.retrieval import SemanticRetriever
+from chatbot.application.stream_gate import ConcurrentStreamGate
+from chatbot.application.use_cases import GroundedChatService, ModelCatalog
 from chatbot.bootstrap import (
     ApplicationContainer,
     build_container,
@@ -72,12 +81,48 @@ async def test_build_container_composes_real_adapters_without_network_calls() ->
 
     container = build_container(settings)
 
+    assert isinstance(container.observability, LoggingObservability)
+    assert isinstance(container.chat, GroundedChatService)
+    assert container.chat._observability is container.observability
+    retriever = container.chat._retriever
+    assert isinstance(retriever, SemanticRetriever)
+    assert retriever._observability is container.observability
     assert container.models.execute() == ("model-a", "model-b")
     with pytest.raises(MessageTooLongError, match="321"):
         container.chat.validate(
             ChatRequest(session_id="session", message="x" * 322, model="model-a")
         )
     assert len(container.resources) == 3
+    await container.close()
+
+
+async def test_build_container_closes_otlp_exporter(monkeypatch: pytest.MonkeyPatch) -> None:
+    tracer_provider = TracerProvider(shutdown_on_exit=False)
+    tracer_provider.add_span_processor(SimpleSpanProcessor(InMemorySpanExporter()))
+    observability = OpenTelemetryObservability(
+        tracer_provider=tracer_provider,
+        meter_provider=MeterProvider(
+            metric_readers=[InMemoryMetricReader()],
+            shutdown_on_exit=False,
+        ),
+        stream_gate=ConcurrentStreamGate(1),
+    )
+    monkeypatch.setattr(
+        "chatbot.bootstrap.build_observability",
+        lambda _settings, _stream_gate: observability,
+    )
+    container = build_container(
+        Settings(
+            _env_file=None,
+            openai_base_url="https://gateway.test/v1",
+            openai_api_key="secret",
+            qdrant_url="https://qdrant.test",
+            qdrant_api_key="secret",
+            chat_models="model-a",
+        )
+    )
+
+    assert observability in container.resources
     await container.close()
 
 

@@ -11,10 +11,13 @@ from chatbot.adapters.outbound.openai_compatible import (
     OpenAIEmbeddingAdapter,
 )
 from chatbot.adapters.outbound.qdrant import QdrantVectorStore
+from chatbot.adapters.outbound.telemetry import build_observability
+from chatbot.adapters.outbound.telemetry.otlp import OpenTelemetryObservability
 from chatbot.adapters.outbound.tiktoken_encoding import TiktokenEncoding
 from chatbot.application.chunking import TokenChunker
 from chatbot.application.contextualization import RecentHistoryContextualizer
 from chatbot.application.models import ChatPolicy
+from chatbot.application.observability import NullObservability
 from chatbot.application.ports import (
     AnswerQuestion,
     AsyncClosePort,
@@ -22,6 +25,7 @@ from chatbot.application.ports import (
     EndSession,
     IngestKnowledgeBase,
     ListModels,
+    ObservabilityPort,
     StreamGate,
 )
 from chatbot.application.prompting import GroundedPromptBuilder
@@ -84,6 +88,7 @@ class ApplicationContainer:
     readiness: CheckReadiness
     stream_gate: StreamGate = field(default_factory=UnlimitedStreamGate)
     stream_timeout_seconds: float = 60.0
+    observability: ObservabilityPort = field(default_factory=NullObservability)
     resources: tuple[AsyncClosePort, ...] = ()
 
     async def close(self) -> None:
@@ -109,10 +114,13 @@ def build_container(settings: Settings) -> ApplicationContainer:
     """Monta o grafo real sem service locator dentro dos casos de uso."""
     embedding = _build_embedding_adapter(settings)
     vector_store = _build_qdrant_store(settings)
+    stream_gate = ConcurrentStreamGate(settings.max_concurrent_streams)
+    observability = build_observability(settings, stream_gate)
     retriever = SemanticRetriever(
         embedding=embedding,
         index=vector_store,
         following_pages=settings.retrieval_following_pages,
+        observability=observability,
     )
     llm = OpenAIChatAdapter(
         base_url=settings.openai_base_url,
@@ -133,15 +141,20 @@ def build_container(settings: Settings) -> ApplicationContainer:
         ),
         prompt_builder=GroundedPromptBuilder(),
         policy=_chat_policy(settings),
+        observability=observability,
     )
+    resources: list[AsyncClosePort] = [embedding, vector_store, llm]
+    if isinstance(observability, OpenTelemetryObservability):
+        resources.append(observability)
     return ApplicationContainer(
         chat=chat,
         models=models,
         end_session=EndSessionService(sessions),
         readiness=ReadinessService(vector_store),
-        stream_gate=ConcurrentStreamGate(settings.max_concurrent_streams),
+        stream_gate=stream_gate,
         stream_timeout_seconds=settings.stream_timeout_seconds,
-        resources=(embedding, vector_store, llm),
+        observability=observability,
+        resources=tuple(resources),
     )
 
 

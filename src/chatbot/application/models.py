@@ -61,6 +61,7 @@ class ChatEvent:
     type: ChatEventType
     content: str | None = None
     citations: tuple[Citation, ...] = field(default_factory=tuple)
+    best_score: float | None = None
 
 
 @dataclass(frozen=True, slots=True)

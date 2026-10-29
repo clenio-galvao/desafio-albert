@@ -16,6 +16,10 @@ async def test_unlimited_stream_gate_never_blocks() -> None:
     await gate.release()
 
 
+def test_concurrent_stream_gate_exposes_configured_limit() -> None:
+    assert ConcurrentStreamGate(4).limit == 4
+
+
 async def test_concurrent_stream_gate_rejects_when_at_limit() -> None:
     gate = ConcurrentStreamGate(1)
 

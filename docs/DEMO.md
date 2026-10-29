@@ -110,6 +110,17 @@ Use `curl.exe -N` ou a demo. Proxies podem aplicar buffering; a API envia
 Confira o modelo em `GET /v1/models`, o formato de `session_id`, o tamanho da
 mensagem e se o JSON não contém campos extras.
 
+### Correlacionar uma pergunta com o Grafana
+
+1. Envie a pergunta e copie o cabeçalho de resposta `X-Request-ID`.
+2. No log JSON do processo, ache a linha `chat_stream` com esse `request_id`
+   e copie o `trace_id`.
+3. No Grafana Cloud, abra Explore no datasource de traces e cole o `trace_id`.
+   O span `chat.stream` mostra os filhos `retrieval`, `embed`, `qdrant` e `llm`.
+
+Sem `OTEL_EXPORTER_OTLP_ENDPOINT`, o passo 3 não tem trace remoto. O log local
+continua sendo emitido. A API não envia o texto da pergunta.
+
 ### A avaliação real não inicia
 
 O script exige `--confirm-live` para evitar consumo acidental:

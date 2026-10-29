@@ -203,6 +203,58 @@ infraestrutura.
 - [ ] Mitigação de custo: cache de embeddings de consultas repetidas.
 - [x] Publicar o relatório no README e no ADR 0005.
 
+## Observabilidade (evolução)
+
+Hoje há liveness, readiness do Qdrant e quatro logs de erro no adapter HTTP.
+`LOG_LEVEL` existe no `Settings`, mas não configura o processo. Não há
+`request_id`, métricas do gate/RAG nem rastreio das etapas de uma pergunta.
+
+O destino escolhido é OpenTelemetry com Grafana Cloud. A API exporta OTLP
+direto, sem Grafana, Loki nem Alloy no Render Free. Spans são manuais e sem
+autoinstrumentação, para não vazar mensagem, prompt ou chunks das apostilas.
+O SDK fica no `bootstrap.py` e num adapter; domínio e casos de uso não
+importam OpenTelemetry. Sem endpoint configurado, a API sobe normalmente.
+
+### Tarefa 12 — `docs: record otel grafana cloud decision`
+
+- [x] Criar o ADR 0006: OTel + Grafana Cloud, OTLP direto, fail-open e
+      amostragem (100% em desenvolvimento, 10–20% em produção).
+- [x] Registrar alternativas descartadas: só logs no Render, Prometheus
+      scrape, Datadog/New Relic, Grafana self-hosted e Alloy no Free.
+- [x] Definir o contrato de privacidade: nada de `message`, prompt, chunks
+      nem chaves; `session_id` só hasheado; um span de geração, não um por
+      token.
+- [x] Atualizar `docs/adr/README.md` com o novo registro.
+
+### Tarefa 13 — `feat: add observability port and json logs`
+
+- [x] Ligar `LOG_LEVEL` na inicialização do processo.
+- [x] Emitir logs JSON no stdout, adequados ao coletor do Render.
+- [x] Gerar `request_id` no adapter HTTP e devolver o cabeçalho
+      `X-Request-ID`.
+- [x] Criar a porta de observabilidade e um adapter sem backend; o núcleo
+      não importa OpenTelemetry, FastAPI nem Grafana.
+- [x] Registrar admissão do stream, HTTP 429, timeout, desconexão, recusa
+      por evidência insuficiente e erro interno.
+- [x] Testar o adapter com fake; a CI continua sem rede nem Grafana.
+
+### Tarefa 14 — `feat: instrument rag pipeline and export otlp`
+
+- [x] Instrumentar spans manuais: `chat.stream`, `retrieval`, `embed`,
+      `qdrant` e `llm`.
+- [x] Anexar só atributos de operação: modelo, `top_k`, melhor score,
+      recusa, tempo até o primeiro token e `session_id` hasheado.
+- [x] Expor métricas: streams ativos versus `MAX_CONCURRENT_STREAMS`, 429,
+      recusas, p95 até o primeiro token e latência Qdrant/LLM.
+- [x] Exportar OTLP quando `OTEL_EXPORTER_OTLP_ENDPOINT` e
+      `OTEL_EXPORTER_OTLP_HEADERS` existirem; sem eles, não exportar.
+- [x] Compor o SDK somente no `bootstrap.py`; testes usam NoOp ou fake.
+- [x] Incluir as variáveis no `.env.example` e como `sync: false` no
+      `render.yaml`.
+- [x] Documentar no README e no DEMO como correlacionar um stream com o
+      trace no Grafana Cloud.
+- [x] Validar Ruff, mypy e cobertura de branches ≥90%.
+
 ## Critérios de aceite
 
 - Tokens são entregues antes de a resposta terminar.
@@ -214,3 +266,5 @@ infraestrutura.
 - Demo, Swagger, Postman e `curl` permitem testar a aplicação publicada.
 - README e ADRs permitem explicar decisões, alternativas e uso de IA.
 - GitHub não contém segredos, PDFs ou dados sensíveis.
+- Telemetria não contém texto da conversa nem segredos; a API sobe sem
+  Grafana Cloud configurado.

@@ -46,6 +46,10 @@ class Settings(BaseSettings):
     max_concurrent_streams: int = Field(default=32, ge=1, le=1000)
     stream_timeout_seconds: float = Field(default=60.0, ge=0, le=300)
     cors_origins: str = ""
+    otel_exporter_otlp_endpoint: str = ""
+    otel_exporter_otlp_headers: SecretStr = SecretStr("")
+    otel_service_name: str = "desafio-albert-chatbot"
+    otel_traces_sample_ratio: float = Field(default=1.0, ge=0, le=1)
 
     @model_validator(mode="after")
     def validate_chunk_overlap(self) -> "Settings":

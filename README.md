@@ -244,8 +244,10 @@ A primeira configuração, uma vez:
 
 1. Envie a branch `main` ao GitHub.
 2. No Render, crie um Blueprint a partir do repositório.
-3. Preencha os quatro valores marcados com `sync: false`:
-   `OPENAI_BASE_URL`, `OPENAI_API_KEY`, `QDRANT_URL` e `QDRANT_API_KEY`.
+3. Preencha os seis valores marcados com `sync: false`:
+   `OPENAI_BASE_URL`, `OPENAI_API_KEY`, `QDRANT_URL`, `QDRANT_API_KEY`,
+   `OTEL_EXPORTER_OTLP_ENDPOINT` e `OTEL_EXPORTER_OTLP_HEADERS`.
+   Os dois últimos podem ficar vazios: a API sobe sem exportar telemetria.
 4. Confirme que `QDRANT_COLLECTION` aponta para a coleção já ingerida e que
    Auto-Deploy está em After CI Checks Pass.
 5. Aguarde `/health/ready` ficar saudável e valide `/demo`.
@@ -254,6 +256,23 @@ A aplicação respeita a variável `PORT` da plataforma. A ingestão não ocorre
 durante o deploy; a coleção deve estar pronta no Qdrant. Em plano gratuito, o
 primeiro acesso depois de um período ocioso pode sofrer cold start de
 aproximadamente 50 segundos ou mais.
+
+## Observabilidade
+
+Cada resposta HTTP leva `X-Request-ID`. O processo escreve logs JSON no stdout
+com esse identificador e, quando há um span aberto, `trace_id` e `span_id`.
+O `session_id` não entra no log: só um fingerprint.
+
+Com `OTEL_EXPORTER_OTLP_ENDPOINT` e `OTEL_EXPORTER_OTLP_HEADERS` preenchidos, o
+`bootstrap.py` exporta traces e métricas OTLP para o Grafana Cloud. Os spans
+manuais são `chat.stream`, `retrieval`, `embed`, `qdrant` e `llm`. Não há
+autoinstrumentação, para não enviar pergunta, prompt ou trechos das apostilas.
+Sem essas variáveis, ou se o exportador falhar ao iniciar, o chat segue só com
+os logs locais.
+
+No Grafana, abra Explore, escolha o datasource de traces e busque o `trace_id`
+impresso no log do mesmo `X-Request-ID`. A decisão está no
+[ADR 0006](docs/adr/0006-observabilidade-otel-grafana.md).
 
 ## Mídias presentes nas apostilas
 
@@ -398,7 +417,7 @@ docs/adr/             decisões arquiteturais
 docs/postman/         coleção para teste manual
 .cursor/rules/        convenções persistentes de código e testes
 .github/workflows/    CI que libera o auto-deploy no Render
-render.yaml           Blueprint com deploy após a CI
+render.yaml           Blueprint com deploy após a CI e amostragem OTel
 ROADMAP.md            tarefas e histórico de execução
 ```
 

@@ -86,6 +86,7 @@ def test_chat_event_defaults_to_empty_citations() -> None:
     event = ChatEvent(type=ChatEventType.TOKEN, content="resposta")
 
     assert event.citations == ()
+    assert event.best_score is None
 
 
 def test_ingestion_result_counts_add_up() -> None:

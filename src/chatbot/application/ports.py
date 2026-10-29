@@ -1,6 +1,7 @@
 """Portas que isolam casos de uso de frameworks e serviços externos."""
 
-from collections.abc import AsyncGenerator, AsyncIterator, Sequence
+from collections.abc import AsyncGenerator, AsyncIterator, Mapping, Sequence
+from contextlib import AbstractContextManager
 from typing import Protocol
 
 from chatbot.application.models import (
@@ -10,6 +11,7 @@ from chatbot.application.models import (
     PromptMessage,
     SourcePage,
 )
+from chatbot.application.observability import ChatObservation, SpanAttributeWriter
 from chatbot.domain.models import ChatSession, DocumentChunk, RetrievedChunk
 
 
@@ -186,6 +188,31 @@ class AsyncClosePort(Protocol):
         ...
 
 
+class ObservabilityPort(Protocol):
+    """Telemetria do chat sem texto da conversa nem dependência de fornecedor."""
+
+    def start_span(
+        self,
+        name: str,
+        attributes: Mapping[str, str | int | float | bool] | None = None,
+    ) -> AbstractContextManager[SpanAttributeWriter]:
+        """Abre um intervalo operacional e o fecha ao sair do bloco."""
+        ...
+
+    def record_chat(self, observation: ChatObservation) -> None:
+        """Registra o desfecho de um stream sem texto da conversa."""
+        ...
+
+    def record_admission_rejected(
+        self,
+        *,
+        request_id: str,
+        session_fingerprint: str,
+    ) -> None:
+        """Conta um stream recusado por saturação antes do SSE."""
+        ...
+
+
 class StreamGate(Protocol):
     """Admissão de streams simultâneos antes de o SSE começar."""
 
@@ -229,4 +256,9 @@ class ApplicationServices(Protocol):
     @property
     def stream_timeout_seconds(self) -> float:
         """Tempo máximo de uma geração; zero desativa o limite."""
+        ...
+
+    @property
+    def observability(self) -> ObservabilityPort:
+        """Telemetria do chat, sem texto da conversa."""
         ...

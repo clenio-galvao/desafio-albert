@@ -30,6 +30,11 @@ class ConcurrentStreamGate:
         """Quantidade de streams atualmente admitidos."""
         return self._active
 
+    @property
+    def limit(self) -> int:
+        """Teto de streams admitidos ao mesmo tempo."""
+        return self._limit
+
     async def try_acquire(self) -> bool:
         """Reserva uma vaga se o limite ainda não foi atingido."""
         async with self._lock:

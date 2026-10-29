@@ -10,7 +10,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from chatbot.adapters.inbound.api import router
+from chatbot.adapters.inbound.api.request_id import RequestIdMiddleware
 from chatbot.adapters.inbound.web import router as web_router
+from chatbot.adapters.outbound.telemetry import configure_logging
 from chatbot.bootstrap import ApplicationContainer, build_container
 from chatbot.config import Settings, split_unique_csv
 
@@ -30,6 +32,7 @@ def create_app(
     @asynccontextmanager
     async def lifespan(application: FastAPI) -> AsyncIterator[None]:
         """Compõe o container na subida e fecha clientes na descida."""
+        configure_logging(os.getenv("LOG_LEVEL", "INFO"))
         active_container = container or build_container(Settings())
         application.state.container = active_container
         try:
@@ -51,8 +54,10 @@ def create_app(
             allow_origins=list(origins),
             allow_credentials=False,
             allow_methods=["GET", "POST", "DELETE"],
-            allow_headers=["Content-Type"],
+            allow_headers=["Content-Type", "X-Request-ID"],
+            expose_headers=["X-Request-ID"],
         )
+    application.add_middleware(RequestIdMiddleware)
     application.include_router(router)
     application.include_router(web_router)
 
