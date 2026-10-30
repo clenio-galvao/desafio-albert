@@ -73,6 +73,52 @@ afterEach(() => {
 })
 
 describe('ChatPage', () => {
+  it('shows a loading indicator until the models arrive', async () => {
+    let resolveModels: (response: Response) => void = () => undefined
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        () =>
+          new Promise<Response>((resolve) => {
+            resolveModels = resolve
+          }),
+      ),
+    )
+    render(<ChatPage apiBaseUrl="http://api.test" />)
+
+    expect(screen.getByRole('progressbar', { name: 'Carregando modelos...' })).toBeInTheDocument()
+
+    await act(async () => {
+      resolveModels(jsonResponse({ models: ['model-a'] }))
+    })
+
+    expect(await screen.findByRole('option', { name: 'model-a' })).toBeInTheDocument()
+    expect(screen.queryByRole('progressbar', { name: 'Carregando modelos...' })).not.toBeInTheDocument()
+  })
+
+  it('shows a loading indicator while the answer is still arriving', async () => {
+    let release: (response: Response) => void = () => undefined
+    installApi({
+      stream: () =>
+        new Promise<Response>((resolve) => {
+          release = resolve
+        }),
+    })
+    render(<ChatPage apiBaseUrl="http://api.test" />)
+    expect(await screen.findByRole('option', { name: 'model-a' })).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('Sua pergunta'), { target: { value: 'Oi' } })
+    fireEvent.submit(screen.getByRole('form', { name: 'Enviar pergunta' }))
+
+    expect(screen.getByRole('progressbar', { name: 'Gerando resposta...' })).toBeInTheDocument()
+
+    await act(async () => {
+      release(sseResponse(answer))
+    })
+
+    expect(await screen.findByText('Olá')).toBeInTheDocument()
+    expect(screen.queryByRole('progressbar', { name: 'Gerando resposta...' })).not.toBeInTheDocument()
+  })
+
   it('loads the allowlist and enables sending', async () => {
     await renderReadyChat()
 

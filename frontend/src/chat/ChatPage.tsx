@@ -9,6 +9,7 @@ const MODELS_FAILURE = 'Não foi possível carregar os modelos.'
 const STREAM_FAILURE = 'Falha ao iniciar a resposta.'
 const STREAM_INTERRUPTED = 'A resposta não pôde ser concluída.'
 const GENERATING = 'Gerando resposta...'
+const LOADING_MODELS = 'Carregando modelos...'
 const NEW_CONVERSATION = 'Nova conversa iniciada.'
 
 interface ChatPageProps {
@@ -22,7 +23,8 @@ export function ChatPage({ apiBaseUrl }: ChatPageProps) {
   const [model, setModel] = useState('')
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [draft, setDraft] = useState('')
-  const [status, setStatus] = useState('')
+  const [status, setStatus] = useState(LOADING_MODELS)
+  const [isLoadingModels, setIsLoadingModels] = useState(true)
   const [isSending, setIsSending] = useState(false)
   const [canSend, setCanSend] = useState(false)
   const nextId = useRef(1)
@@ -38,11 +40,13 @@ export function ChatPage({ apiBaseUrl }: ChatPageProps) {
         setModels(names)
         setModel(names[0] ?? '')
         setCanSend(names.length > 0)
-        if (names.length === 0) setStatus(MODELS_FAILURE)
+        setIsLoadingModels(false)
+        setStatus(names.length === 0 ? MODELS_FAILURE : '')
       })
       .catch((error: unknown) => {
         if (!isCurrent) return
         setCanSend(false)
+        setIsLoadingModels(false)
         setStatus(readErrorMessage(error, MODELS_FAILURE))
       })
     return () => {
@@ -164,15 +168,27 @@ export function ChatPage({ apiBaseUrl }: ChatPageProps) {
       </header>
 
       <section id="messages" ref={listRef} aria-live="polite" aria-label="Conversa">
+        {isLoadingModels ? (
+          <div className="loading">
+            <span className="spinner" role="progressbar" aria-label={LOADING_MODELS} />
+            <span>{LOADING_MODELS}</span>
+          </div>
+        ) : null}
         {messages.map((item) => (
           <article key={item.id} className={classNameFor(item)}>
             <div>{item.text}</div>
+            {isSending && item.text === '' && !item.isError ? (
+              <span className="pending">
+                <span className="spinner" role="progressbar" aria-label={GENERATING} />
+                <span>{GENERATING}</span>
+              </span>
+            ) : null}
             {item.sources ? <div className="sources">{item.sources}</div> : null}
           </article>
         ))}
       </section>
 
-      <div>
+      <div className="composer">
         <form aria-label="Enviar pergunta" onSubmit={handleSubmit}>
           <textarea
             id="message"
